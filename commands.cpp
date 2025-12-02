@@ -74,16 +74,16 @@ void deleteItem(string selectedFile) {
     }
 }
 
-void renameItem(string selectedFile) {
+void renameItem(string selectedFile, string newName) {
     string oldPath = string(currPath) + "/" + selectedFile;
 
     // Clear screen and ask for new name
-    posx(rows-2,0);
-    printf("\033[K");
-    // system("clear");
-    printf("\033[1;33mEnter new name for '%s': \033[0m", selectedFile.c_str());
+    // posx(rows-2,0);
+    // printf("\033[K");
+    // // system("clear");
+    // printf("\033[1;33mEnter new name for '%s': \033[0m", selectedFile.c_str());
 
-    string newName=get_input();
+    // string newName=get_input();
     // getline(cin >> ws, newName);  // Read the full input while ignoring leading spaces
 
     if (newName.empty()) {
@@ -93,16 +93,17 @@ void renameItem(string selectedFile) {
     string newPath = string(currPath) + "/" + newName;
 
     if (rename(oldPath.c_str(), newPath.c_str()) == 0) {
+        displayFiles();
         return;
     }
 }
 
-void createFile() {
-    posx(rows-2, 0);
-    printf("\033[K");
-    printf("\033[1;33mEnter file name: \033[0m");
+void createFile(string fileName) {
+    // posx(rows-2, 0);
+    // printf("\033[K");
+    // printf("\033[1;33mEnter file name: \033[0m");
 
-    string fileName=get_input();
+    // string fileName=get_input();
     // getline(cin >> ws, fileName);  // Read the full input while ignoring leading spaces
 
     if (fileName.empty()) {
@@ -114,14 +115,18 @@ void createFile() {
     if (file) {
         file.close();
     }
+    // displayFiles();
+    openDirectory(currPath, up_screen, down_screen);
+    displayFiles();
+    pos();
 }
 
-void createDirectory() {
-    posx(rows-2, 0);
-    printf("\033[K");
-    printf("\033[1;33mEnter directory name: \033[0m");
+void createDirectory(string dirName) {
+    // posx(rows-2, 0);
+    // printf("\033[K");
+    // printf("\033[1;33mEnter directory name: \033[0m");
 
-    string dirName=get_input();
+    // string dirName=get_input();
     // getline(cin >> ws, dirName);  // Read the full input while ignoring leading spaces
 
     if (dirName.empty()) {
@@ -130,17 +135,16 @@ void createDirectory() {
 
     string dirPath = string(currPath) + "/" + dirName;
     if (mkdir(dirPath.c_str(), 0777) == 0) {
+        // displayFiles();
         return;
     }
+    // openDirectory(currPath, up_screen, down_screen);
+    // displayFiles();
+    // pos();
 }
 
 void navigateToAbsolutePath(string absPath) {
-    // posx(10, 0);
-    // printf("\033[K");
-    // printf("\033[1;33mEnter absolute path: \033[0m");
 
-    // string absPath;
-    // getline(cin >> ws, absPath);
     if (absPath.empty() || absPath[0] != '/') {
         // If path is empty or not absolute, do nothing
         // openDirectory(currPath, up_screen, down_screen);

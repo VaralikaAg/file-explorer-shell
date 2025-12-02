@@ -33,9 +33,7 @@ int main(int argc, char *argv[]){
     colSize=cols/3;
     // logMessage(to_string(colSize));
 
-    // printf("Hello main!!\n");
     if(argc==1){
-        // printf("Started!!\n");
         string s = ".";
 		char *path = new char[2];
 		strcpy(path, s.c_str());

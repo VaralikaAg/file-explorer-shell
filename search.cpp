@@ -211,17 +211,17 @@ void searchanything(char *path, string filename, bool check_file, bool check_dir
     closedir(dir);
 }
 
-void searchCommand(bool check_dir, bool check_file)
+void searchCommand(bool check_dir, bool check_file, string filename)
 {
-    posx(rows-2, 0);
-    if(check_dir && check_file)
-        printf("\033[1;33mEnter file/dir name to search: \033[0m");
-    else if (check_dir)
-        printf("\033[1;33mEnter dir name to search: \033[0m");
-    else if (check_file)
-        printf("\033[1;33mEnter file name to search: \033[0m");
+    // posx(rows-2, 0);
+    // if(check_dir && check_file)
+    //     printf("\033[1;33mEnter file/dir name to search: \033[0m");
+    // else if (check_dir)
+    //     printf("\033[1;33mEnter dir name to search: \033[0m");
+    // else if (check_file)
+    //     printf("\033[1;33mEnter file name to search: \033[0m");
 
-    string filename=get_input();
+    // string filename=get_input();
     // getline(cin >> ws, filename);
     if(filename.empty()) return;
 
