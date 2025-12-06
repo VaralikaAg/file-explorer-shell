@@ -2,12 +2,14 @@
 #include "myheader.h"
 
 #define resetCursorColor() fprintf(stdout, "\033]12;?\007")
+#define pos() fprintf(stdout, "\033[%d;%dH", xcurr, ycurr)
 unsigned int rows,cols, rowSize, colSize;
+int resized;
 
 char *root;
 
 void logMessage(const std::string& message) {
-    std::ofstream logFile("debug.log", std::ios_base::app); // Open log file in append mode
+    std::ofstream logFile("logs/debug.log", std::ios_base::app); // Open log file in append mode
     if (logFile.is_open()) {
         logFile << message << std::endl; // Write message to file
     } else {
@@ -27,10 +29,11 @@ void get_terminal_size() {
 int main(int argc, char *argv[]){
 
     signal(SIGINT, handleSigint);
+    signal(SIGWINCH, handleResize);
     get_terminal_size();
-    // logMessage(to_string(rows));
     rowSize=rows-10;
     colSize=cols/3;
+    resized=0;
     // logMessage(to_string(colSize));
 
     if(argc==1){

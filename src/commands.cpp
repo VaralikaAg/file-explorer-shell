@@ -1,8 +1,10 @@
 #include "myheader.h"
 
-string clipboard;
+vector<string> clipboard;
 #define pos() fprintf(stdout, "\033[%d;%dH", xcurr, ycurr)  // Move cursor
 #define posx(x, y) fprintf(stdout, "\033[%d;%dH", x, y)  // Move to (x, y)
+#define clearScreen fputs("\033[H\033[2J", stdout)
+#define setCursorRed() fprintf(stdout, "\033]12;#ff0000\007")
 
 string get_input(){
     string commandLine;
@@ -26,53 +28,141 @@ string get_input(){
     return commandLine;
 }
 
-void copy(string selectedFile){
-    string sourcePath = string(currPath) + "/" + selectedFile;
-    clipboard = sourcePath;
+// void copy(string selectedFile){
+//     string sourcePath = string(currPath) + "/" + selectedFile;
+//     clipboard = sourcePath;
+//     posx(rows-2, 0);
+//     printf("\033[K");
+//     printf("\033[1;33mCOPIED: %s \033[0m", sourcePath.c_str());
+//     pos();
+// }
+
+void copy() {
+    clipboard.clear();
+
+    if (!selectedFiles.empty()) {
+        for (auto &path : selectedFiles)
+            clipboard.push_back(path);
+    } else {
+        // No multi-select → copy current file
+        string file = fileList[xcurr + up_screen - 1];
+        clipboard.push_back(string(currPath) + "/" + file);
+    }
+
     posx(rows-2, 0);
     printf("\033[K");
-    printf("\033[1;33mCOPIED: %s \033[0m", sourcePath.c_str());
+    printf("\033[1;33mCOPIED %zu item(s)\033[0m", clipboard.size());
     pos();
 }
 
-void paste(){
-    if(!clipboard.empty()){
-        size_t posIdx = clipboard.find_last_of("/\\");
-        string baseName = (posIdx != string::npos) ? clipboard.substr(posIdx + 1) : clipboard;
-        
+void paste() {
+    if (clipboard.empty()) return;
+
+    for (auto &src : clipboard) {
+        size_t posIdx = src.find_last_of("/\\");
+        string baseName = (posIdx != string::npos)
+                            ? src.substr(posIdx + 1)
+                            : src;
+
         string destPath = string(currPath) + "/" + baseName;
-        string cmd;
-        if (isDirectory(clipboard.c_str())) {
-            cmd = "cp -r \"" + clipboard + "\" \"" + destPath + "\"";
+
+        if (isDirectory(src.c_str())) {
+            string cmd = "cp -r \"" + src + "\" \"" + destPath + "\"";
+            system(cmd.c_str());
         } else {
-            cmd = "cp \"" + clipboard + "\" \"" + destPath + "\"";
+            string cmd = "cp \"" + src + "\" \"" + destPath + "\"";
+            system(cmd.c_str());
         }
-        system(cmd.c_str());
     }
+
+    invalidateDirCache(currPath);
+    selectedFiles.clear();   // optional but recommended
 }
 
-void deleteItem(string selectedFile) {
-    string targetPath = string(currPath) + "/" + selectedFile;
 
-    // Clear screen and ask for confirmation
+
+// void paste(){
+//     if(!clipboard.empty()){
+//         size_t posIdx = clipboard.find_last_of("/\\");
+//         string baseName = (posIdx != string::npos) ? clipboard.substr(posIdx + 1) : clipboard;
+        
+//         string destPath = string(currPath) + "/" + baseName;
+//         string cmd;
+//         if (isDirectory(clipboard.c_str())) {
+//             cmd = "cp -r \"" + clipboard + "\" \"" + destPath + "\"";
+//         } else {
+//             cmd = "cp \"" + clipboard + "\" \"" + destPath + "\"";
+//         }
+//         system(cmd.c_str());
+//         invalidateDirCache(currPath);
+//     }
+// }
+
+void deleteSelectedItems() {
+    vector<string> targets;
+
+    if (!selectedFiles.empty()) {
+        for (auto &p : selectedFiles)
+            targets.push_back(p);
+    } else {
+        string file = fileList[xcurr + up_screen - 1];
+        targets.push_back(string(currPath) + "/" + file);
+    }
+
+    // Confirmation screen
     system("clear");
     posx(1,1);
-    cout<<"Are you sure you want to delete '"+(string)selectedFile.c_str()+"' ? (y/n): ";
-    // printf("\033[1;33mAre you sure you want to delete '%s'? (y/n): \033[0m", selectedFile.c_str());
+    cout << "Delete " << targets.size() << " item(s)? (y/n): ";
 
-    string choice=get_input();
-    // getline(cin, choice);
-
-    if (choice == "y" || choice == "Y") {
-        string cmd;
-        if (isDirectory(targetPath.c_str())) {
-            cmd = "rm -r \"" + targetPath + "\"";  // Delete directory recursively
-        } else {
-            cmd = "rm \"" + targetPath + "\"";  // Delete file
-        }
-        system(cmd.c_str());
+    string choice = get_input();
+    if (choice != "y" && choice != "Y") {
+        displayFiles();
+        pos();
+        return;
     }
+
+    // Delete all
+    for (auto &path : targets) {
+        if (isDirectory(path.c_str())) {
+            string cmd = "rm -rf \"" + path + "\"";
+            system(cmd.c_str());
+        } else {
+            string cmd = "rm \"" + path + "\"";
+            system(cmd.c_str());
+        }
+    }
+
+    selectedFiles.clear();
+    invalidateDirCache(currPath);
+
+    openDirectory(currPath, up_screen, down_screen);
+    displayFiles();
+    pos();
 }
+
+// void deleteItem(string selectedFile) {
+//     string targetPath = string(currPath) + "/" + selectedFile;
+
+//     // Clear screen and ask for confirmation
+//     system("clear");
+//     posx(1,1);
+//     cout<<"Are you sure you want to delete '"+(string)selectedFile.c_str()+"' ? (y/n): ";
+//     // printf("\033[1;33mAre you sure you want to delete '%s'? (y/n): \033[0m", selectedFile.c_str());
+
+//     string choice=get_input();
+//     // getline(cin, choice);
+
+//     if (choice == "y" || choice == "Y") {
+//         string cmd;
+//         if (isDirectory(targetPath.c_str())) {
+//             cmd = "rm -r \"" + targetPath + "\"";  // Delete directory recursively
+//         } else {
+//             cmd = "rm \"" + targetPath + "\"";  // Delete file
+//         }
+//         system(cmd.c_str());
+//     }
+//     invalidateDirCache(currPath);
+// }
 
 void renameItem(string selectedFile, string newName) {
     string oldPath = string(currPath) + "/" + selectedFile;
@@ -93,8 +183,13 @@ void renameItem(string selectedFile, string newName) {
     string newPath = string(currPath) + "/" + newName;
 
     if (rename(oldPath.c_str(), newPath.c_str()) == 0) {
+        invalidateDirCache(currPath);
+        openDirectory(currPath, up_screen, down_screen);
+        update_position(newName);
         displayFiles();
-        return;
+        pos();
+        // displayFiles();
+        // return;
     }
 }
 
@@ -116,7 +211,9 @@ void createFile(string fileName) {
         file.close();
     }
     // displayFiles();
+    invalidateDirCache(currPath);
     openDirectory(currPath, up_screen, down_screen);
+    update_position(fileName);
     displayFiles();
     pos();
 }
@@ -135,13 +232,90 @@ void createDirectory(string dirName) {
 
     string dirPath = string(currPath) + "/" + dirName;
     if (mkdir(dirPath.c_str(), 0777) == 0) {
+        invalidateDirCache(currPath);
+        openDirectory(currPath, up_screen, down_screen);
+        update_position(dirName);
+        displayFiles();
+        pos();
         // displayFiles();
-        return;
+        // return;
     }
-    // openDirectory(currPath, up_screen, down_screen);
-    // displayFiles();
-    // pos();
 }
+
+void showHelp() {
+    clearScreen;  // full clear
+
+    setCursorRed();
+    posx(1, 5);
+    printf("\033[1;33mCOMMAND MODE HELP\033[0m");
+
+    posx(3, 5);
+    printf("\033[1;36mrename <new_name>\033[0m");
+    printf("        Rename selected file or directory");
+
+    posx(4, 5);
+    printf("\033[1;36mcreate_file <name>\033[0m");
+    printf("       Create a new file");
+
+    posx(5, 5);
+    printf("\033[1;36mcreate_dir <name>\033[0m");
+    printf("        Create a new directory");
+
+    posx(6, 5);
+    printf("\033[1;36mcd <absolute_path>\033[0m");
+    printf("       Change directory");
+
+    posx(7, 5);
+    printf("\033[1;36msearch <name>\033[0m");
+    printf("             Search file & directory");
+
+    posx(8, 5);
+    printf("\033[1;36msearch --file <name>\033[0m");
+    printf("      Search only files");
+
+    posx(9, 5);
+    printf("\033[1;36msearch --dir <name>\033[0m");
+    printf("      Search only directories");
+
+    posx(10, 5);
+    printf("\033[1;36mq\033[0m");
+    printf("                         Exit command mode");
+
+    posx(rows - 2, 5);
+    printf("\033[1;32mPress any key to return to file explorer...\033[0m");
+
+    posx(rows - 1, 0);
+    fflush(stdout);
+
+    getchar();
+
+    // Restore file explorer
+    displayFiles();
+    pos();
+}
+
+
+// void showHelp() {
+//     posx(rows-2, 0);
+//     printf("\033[K");
+//     printf("\033[1;33mCommand Mode Help\033[0m\n");
+
+//     posx(rows-1, 0);
+//     printf("\033[K");
+//     printf(
+//         "\033[1;36m"
+//         "rename <new_name>        - Rename selected file/dir\n"
+//         "create_file <name>       - Create a new file\n"
+//         "create_dir <name>        - Create a new directory\n"
+//         "cd <absolute_path>       - Change directory\n"
+//         "search [--file|--dir] <name> - Search item\n"
+//         "q                        - Exit command mode\n"
+//         "--help                   - Show this help\n"
+//         "\033[0m"
+//     );
+
+//     pos(); // restore cursor
+// }
 
 void navigateToAbsolutePath(string absPath) {
 

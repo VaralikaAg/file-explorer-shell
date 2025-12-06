@@ -2,12 +2,12 @@
 
 vector<string> foundPaths;  // Store found file/directory paths
 #define esc 27
-#define clear fputs("\033[2J", stdout)                  // Clear screen
+#define clearScreen fputs("\033[2J", stdout)                  // Clear screen
 #define posx(x, y) fprintf(stdout, "\033[%d;%dH", x, y)  // Move to (x, y)
 
 
 void displayFoundFiles(int file_up, int file_down) {
-    clear;
+    clearScreen;
 
     for (size_t i = file_up, line = 1; i < foundPaths.size() && i < file_up + rowSize; i++, line++) {
         std::string filePath = foundPaths[i];
@@ -36,7 +36,7 @@ void displaySearchResults(){
         ch = cin.get();
 
         if (ch == 27) {  // Escape sequence
-            clear;
+            clearScreen;
             displayFoundFiles(file_up, file_down);
             posx(filecurr, 1);
             ch = cin.get();
@@ -231,6 +231,6 @@ void searchCommand(bool check_dir, bool check_file, string filename)
     foundPaths.resize(0);
     transform(filename.begin(), filename.end(), filename.begin(), ::tolower); 
     searchanything(path, filename, check_file, check_dir);
-    clear;
+    clearScreen;
     displaySearchResults();
 }

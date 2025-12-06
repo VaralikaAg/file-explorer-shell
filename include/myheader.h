@@ -14,6 +14,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <ctime>
+#include <map>
 using namespace std;
 
 // Extern Global Variables
@@ -33,11 +34,13 @@ extern unsigned int rowSize, totalFiles, colSize;
 extern vector<string> fileList;
 extern stack<NavState> backStack;
 extern stack<NavState> forwardStack;
-extern string clipboard;
+extern vector<string> clipboard;
 extern unsigned int xcurr, ycurr;
 extern vector<string> foundPaths;
 extern unsigned int rows,cols;
-
+extern unordered_map<string, vector<string>> dirCache;
+extern unordered_set<string> selectedFiles;
+extern int resized;
 
 // Global Method Declarations
 int getDirectoryCount(const char *path);
@@ -47,10 +50,12 @@ void navigate();
 void displayFiles();
 void display(const char *fileName, const char *root);
 bool isDirectory(const char *newPath);
+void invalidateDirCache(const string &dirPath);
 void handleSigint(int signum);
-void copy(string selectedFile);
+void handleResize(int sig);
+void copy();
 void paste();
-void deleteItem(string selectedFile);
+void deleteSelectedItems();
 void commandMode();
 void renameItem(string selectedFile, string newName);
 void createFile(string fileName);
@@ -58,10 +63,14 @@ void createDirectory(string dirName);
 void navigateToAbsolutePath(string absPath);
 void searchanything(char *path, string filename, bool check_file, bool check_dir);
 void searchCommand(bool check_dir, bool check_file, string filename);
+void showHelp();
+void toggleSelect();
+void normalizeCursor();
 void displaySearchResults();
 bool isReadableFile(const string &filepath);
 bool isBinaryFile(const string &filepath);
 void displayTextFile(const string &filepath);
+void update_position(string fileName);
 void logMessage(const std::string& message);
 string get_input();
 void get_terminal_size();

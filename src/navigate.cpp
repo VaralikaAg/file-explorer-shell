@@ -4,11 +4,12 @@ char *currPath;
 char *prevPath;
 unsigned int xcurr=1, ycurr=cols/3;  // Only display last 3 files
 struct termios initialrsettings, newrsettings;
+unordered_set<string> selectedFiles;
 
 #define esc 27
 
 // #define clear fputs("\033[2J", stdout)                  // Clear screen
-#define clear fputs("\033[H\033[2J", stdout)
+#define clearScreen fputs("\033[H\033[2J", stdout)
 #define pos() fprintf(stdout, "\033[%d;%dH", xcurr, ycurr)  // Move cursor
 #define posx(x, y) fprintf(stdout, "\033[%d;%dH", x, y)  // Move to (x, y)
 #define setCursorRed() fprintf(stdout, "\033]12;#ff0000\007")
@@ -58,9 +59,6 @@ void commandMode()
     else if (command == "create_dir" && args.size()>1){
         string new_name = args[1];
         createDirectory(new_name);
-        openDirectory(currPath, up_screen, down_screen);
-        displayFiles();
-        pos();
     }
     else if (command == "cd" && args.size()>1){
         string absPath=args[1];
@@ -86,6 +84,10 @@ void commandMode()
         searchCommand(check_dir, check_file, filename);
 
     }
+    else if (command == "--help" || command == "help") {
+        showHelp();
+        return;
+    }
     else if(command == "q"){
         displayFiles();
     }
@@ -94,7 +96,7 @@ void commandMode()
 
 void displayFiles() {
     // system("clear");
-    clear;
+    clearScreen;
     setCursorRed();
 
     // Printing previous directory
@@ -214,6 +216,18 @@ void navigate() {
     tcsetattr(fileno(stdin), TCSANOW, &newrsettings);
 
     while (true) {
+        if (resized) {
+            resized = 0;
+
+            get_terminal_size();
+            rowSize = (rows * 75) / 100;
+            colSize = cols / 3;
+
+            normalizeCursor();
+            displayFiles();
+            pos();
+        }
+
         ch = cin.get();
 
         if (ch == 27) {  // Escape sequence
@@ -257,6 +271,7 @@ void navigate() {
 
             else if(ch=='C'){
                 // printf("Right arrow used\n");
+                selectedFiles.clear();
                 string selectedFile = fileList[xcurr + up_screen - 1];
                 string tempPath = string(currPath);
                 if (tempPath.back() != '/') tempPath += "/";
@@ -295,6 +310,7 @@ void navigate() {
 
             else if(ch == 'D'){
                 // printf("Left arrow key used\n");
+                selectedFiles.clear();
                 if(!backStack.empty()){
                     NavState prevState = backStack.top();
                     backStack.pop();
@@ -311,6 +327,7 @@ void navigate() {
                     // logMessage(prevState.path);
                     // logMessage(to_string(prevState.xcurr));
                     // logMessage(to_string(prevState.up_screen));
+                    normalizeCursor();
 
                     displayFiles();
                     pos();
@@ -322,9 +339,10 @@ void navigate() {
 
         }
         else if (ch=='c'){
-            string selectedFile = fileList[xcurr + up_screen - 1];
+            // string selectedFile = fileList[xcurr + up_screen - 1];
+            copy();
             displayFiles();
-            copy(selectedFile);
+            // copy(selectedFile);
         }
         else if (ch=='p'){
             paste();
@@ -333,12 +351,7 @@ void navigate() {
             pos();
         }
         else if (ch == 'd') {
-            string selectedFile = fileList[xcurr + up_screen - 1];
-            displayFiles();
-            deleteItem(selectedFile);
-            openDirectory(currPath, up_screen, down_screen);
-            displayFiles();
-            pos();
+            deleteSelectedItems();
         }
         else if (ch == ':') {
             displayFiles();
@@ -347,6 +360,18 @@ void navigate() {
             // displayFiles();
             // pos();
         }
+        else if (ch == ' ') {
+            toggleSelect();
+            // displayFiles();
+            // pos();
+        }
+        else if (ch == 'u') {
+            selectedFiles.clear();
+            displayFiles();
+            pos();
+        }
+
+
 
         else if (ch == 127 || ch == 8){
             // printf("Backspace key used\n");
@@ -441,4 +466,8 @@ void handleSigint(int signum) {
     // Exit with the signal number.
     // cout << "Exited gracefully." << endl;
     exit(signum);
+}
+
+void handleResize(int sig) {
+    resized=1;
 }
