@@ -59,3 +59,33 @@ void toggleSelect() {
     else
         selectedFiles.insert(fullPath);
 }
+
+void loadConfig() {
+    std::ifstream file("config.yml");
+    if (!file.is_open()) {
+        logMessage("config.yml not found, using default workers = 4");
+        return;
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        // remove spaces
+        line.erase(remove_if(line.begin(), line.end(), ::isspace), line.end());
+
+        if (line.find("workers:") != std::string::npos) {
+            try {
+                CONFIG_WORKERS = std::stoi(line.substr(line.find(":") + 1));
+                if (CONFIG_WORKERS <= 0) {
+                    CONFIG_WORKERS = 4;
+                }
+                logMessage("Loaded workers = " + std::to_string(CONFIG_WORKERS));
+            } catch (...) {
+                logMessage("Invalid workers value, using default");
+                CONFIG_WORKERS = 4;
+            }
+            break;
+        }
+    }
+
+    file.close();
+}

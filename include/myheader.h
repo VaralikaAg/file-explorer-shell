@@ -15,6 +15,13 @@
 #include <grp.h>
 #include <ctime>
 #include <map>
+#include <thread>
+#include <atomic>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+#include <chrono>
+
 using namespace std;
 
 // Extern Global Variables
@@ -41,6 +48,7 @@ extern unsigned int rows,cols;
 extern unordered_map<string, vector<string>> dirCache;
 extern unordered_set<string> selectedFiles;
 extern int resized;
+extern int CONFIG_WORKERS;
 
 // Global Method Declarations
 int getDirectoryCount(const char *path);
@@ -66,6 +74,7 @@ void searchCommand(bool check_dir, bool check_file, string filename);
 void showHelp();
 void toggleSelect();
 void normalizeCursor();
+void loadConfig();
 void displaySearchResults();
 bool isReadableFile(const string &filepath);
 bool isBinaryFile(const string &filepath);
@@ -75,4 +84,5 @@ void logMessage(const std::string& message);
 string get_input();
 void get_terminal_size();
 void getFileDetails(const string &path);
+off_t getFolderSizeMT(const string &rootPath, int numThreads);
 string humanReadableSize(off_t size);

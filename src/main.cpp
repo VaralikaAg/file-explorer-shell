@@ -4,7 +4,7 @@
 #define resetCursorColor() fprintf(stdout, "\033]12;?\007")
 #define pos() fprintf(stdout, "\033[%d;%dH", xcurr, ycurr)
 unsigned int rows,cols, rowSize, colSize;
-int resized;
+int resized, CONFIG_WORKERS;
 
 char *root;
 
@@ -27,6 +27,8 @@ void get_terminal_size() {
 
 // Main method
 int main(int argc, char *argv[]){
+
+    loadConfig();
 
     signal(SIGINT, handleSigint);
     signal(SIGWINCH, handleResize);

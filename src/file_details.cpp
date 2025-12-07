@@ -23,38 +23,116 @@ string humanReadableSize(off_t size) {
     return oss.str();
 }
 
-off_t getFolderSize(const string &folderPath) {
-    DIR *dir = opendir(folderPath.c_str());
-    if (!dir) return 0;
+// off_t getFolderSize(const string &folderPath) {
+//     DIR *dir = opendir(folderPath.c_str());
+//     if (!dir) return 0;
 
-    struct dirent *entry;
-    struct stat entryStat;
-    off_t totalSize = 0;
+//     struct dirent *entry;
+//     struct stat entryStat;
+//     off_t totalSize = 0;
 
-    while ((entry = readdir(dir)) != nullptr) {
-        string name = entry->d_name;
+//     while ((entry = readdir(dir)) != nullptr) {
+//         string name = entry->d_name;
 
-        // Skip . and ..
-        if (name == "." || name == "..") continue;
+//         // Skip . and ..
+//         if (name == "." || name == "..") continue;
 
-        string fullPath = folderPath + "/" + name;
+//         string fullPath = folderPath + "/" + name;
 
-        if (stat(fullPath.c_str(), &entryStat) == 0) {
-            if (S_ISDIR(entryStat.st_mode)) {
-                totalSize += getFolderSize(fullPath); // Recurse
-            } else {
-                totalSize += entryStat.st_size;
+//         if (stat(fullPath.c_str(), &entryStat) == 0) {
+//             if (S_ISDIR(entryStat.st_mode)) {
+//                 totalSize += getFolderSize(fullPath); // Recurse
+//             } else {
+//                 totalSize += entryStat.st_size;
+//             }
+//         }
+//     }
+
+//     closedir(dir);
+//     return totalSize;
+// }
+
+off_t getFolderSizeMT(const string &rootPath, int numThreads) {
+    queue<string> dirQueue;
+    mutex queueMutex;
+    condition_variable cv;
+
+    atomic<off_t> totalSize{0};
+    atomic<int> activeWorkers{0};
+    bool done = false;
+
+    dirQueue.push(rootPath);
+
+    auto worker = [&]() {
+        while (true) {
+            string currentDir;
+
+            {
+                unique_lock<mutex> lock(queueMutex);
+                cv.wait(lock, [&]() {
+                    return !dirQueue.empty() || done;
+                });
+
+                if (done && dirQueue.empty())
+                    return;
+
+                currentDir = dirQueue.front();
+                dirQueue.pop();
+                activeWorkers++;
+            }
+
+            DIR *dir = opendir(currentDir.c_str());
+            if (dir) {
+                struct dirent *entry;
+                struct stat st;
+
+                while ((entry = readdir(dir)) != nullptr) {
+                    string name = entry->d_name;
+                    if (name == "." || name == "..") continue;
+
+                    string fullPath = currentDir + "/" + name;
+
+                    if (lstat(fullPath.c_str(), &st) == 0) {
+                        if (S_ISDIR(st.st_mode)) {
+                            lock_guard<mutex> lock(queueMutex);
+                            dirQueue.push(fullPath);
+                            cv.notify_one();
+                        } else if (S_ISREG(st.st_mode)) {
+                            totalSize += st.st_size;
+                        }
+                    }
+                }
+                closedir(dir);
+            }
+
+            {
+                lock_guard<mutex> lock(queueMutex);
+                activeWorkers--;
+                if (dirQueue.empty() && activeWorkers == 0) {
+                    done = true;
+                    cv.notify_all();
+                }
             }
         }
+    };
+
+    vector<thread> threads;
+    for (int i = 0; i < numThreads; i++) {
+        threads.emplace_back(worker);
     }
 
-    closedir(dir);
-    return totalSize;
+    for (auto &t : threads)
+        t.join();
+
+    return totalSize.load();
 }
+
 
 // Function to get file details
 void getFileDetails(const string &path) {
     struct stat statbuf;
+    // auto start,end,duration;
+    long long duration=-1;
 
     // Get file statistics
     if (stat(path.c_str(), &statbuf) != 0) {
@@ -69,7 +147,11 @@ void getFileDetails(const string &path) {
     // Get file size in human-readable format
     if (S_ISDIR(statbuf.st_mode)) {
         // Get folder size recursively
-        off_t folderSize = getFolderSize(path);
+        // off_t folderSize = getFolderSize(path);
+        auto start = chrono::steady_clock::now();
+        off_t folderSize = getFolderSizeMT(path,CONFIG_WORKERS);
+        auto end = chrono::steady_clock::now();
+        duration = chrono::duration_cast<chrono::milliseconds>(end - start).count();
         fileSize = humanReadableSize(folderSize) + " (dir)";
     } else {
         fileSize = humanReadableSize(statbuf.st_size);
@@ -117,4 +199,10 @@ void getFileDetails(const string &path) {
     s="Last Modified: " + (string)timeBuffer;
     // cout << "Last Modified: " << timeBuffer << endl;
     cout << truncate(s, colSize-4) << endl;
+    if(duration!=-1){
+        s= "Scan Time: " + to_string(duration) + " ms";
+        logMessage(s);
+        cout << truncate(s, colSize-4) << endl;
+    }
+
 }
