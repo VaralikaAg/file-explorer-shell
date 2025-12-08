@@ -28,75 +28,122 @@ string get_input(){
     return commandLine;
 }
 
-// void copy(string selectedFile){
-//     string sourcePath = string(currPath) + "/" + selectedFile;
-//     clipboard = sourcePath;
-//     posx(rows-2, 0);
-//     printf("\033[K");
-//     printf("\033[1;33mCOPIED: %s \033[0m", sourcePath.c_str());
-//     pos();
-// }
-
 void copy() {
-    clipboard.clear();
+    try {
+        vector<string> tempClipboard;   // transactional buffer
 
-    if (!selectedFiles.empty()) {
-        for (auto &path : selectedFiles)
-            clipboard.push_back(path);
-    } else {
-        // No multi-select → copy current file
-        string file = fileList[xcurr + up_screen - 1];
-        clipboard.push_back(string(currPath) + "/" + file);
+        // -------- BEGIN TRANSACTION --------
+        if (!selectedFiles.empty()) {
+            for (auto &path : selectedFiles) {
+                if (path.empty()) {
+                    throw runtime_error("Empty path in selectedFiles");
+                }
+                tempClipboard.push_back(path);
+            }
+        } else {
+            int index = xcurr + up_screen - 1;
+
+            if (index < 0 || index >= (int)fileList.size()) {
+                throw out_of_range("Invalid cursor index");
+            }
+
+            string file = fileList[index];
+            tempClipboard.push_back(string(currPath) + "/" + file);
+        }
+
+        // -------- COMMIT --------
+        clipboard.clear();
+        clipboard = std::move(tempClipboard);
+
+        posx(rows - 2, 0);
+        printf("\033[K");
+        printf("\033[1;33mCOPIED %zu item(s)\033[0m", clipboard.size());
+        pos();
     }
+    catch (const exception &e) {
+        // -------- ROLLBACK --------
+        clipboard.clear();
+        selectedFiles.clear();
 
-    posx(rows-2, 0);
-    printf("\033[K");
-    printf("\033[1;33mCOPIED %zu item(s)\033[0m", clipboard.size());
-    pos();
+        logMessage(
+            string("[COPY FAILED] ") +
+            e.what() +
+            " | FILE: " + __FILE__ +
+            " | LINE: " + to_string(__LINE__)
+        );
+
+        posx(rows - 2, 0);
+        printf("\033[K");
+        printf("\033[1;31mCOPY FAILED — STATE RECOVERED\033[0m");
+        pos();
+    }
 }
+
 
 void paste() {
     if (clipboard.empty()) return;
 
-    for (auto &src : clipboard) {
-        size_t posIdx = src.find_last_of("/\\");
-        string baseName = (posIdx != string::npos)
-                            ? src.substr(posIdx + 1)
-                            : src;
+    vector<string> pastedFiles;   // tracks successfully pasted items
 
-        string destPath = string(currPath) + "/" + baseName;
+    try {
+        for (auto &src : clipboard) {
+            size_t posIdx = src.find_last_of("/\\");
+            string baseName = (posIdx != string::npos)
+                                ? src.substr(posIdx + 1)
+                                : src;
 
-        if (isDirectory(src.c_str())) {
-            string cmd = "cp -r \"" + src + "\" \"" + destPath + "\"";
-            system(cmd.c_str());
-        } else {
-            string cmd = "cp \"" + src + "\" \"" + destPath + "\"";
-            system(cmd.c_str());
+            string destPath = string(currPath) + "/" + baseName;
+
+            string cmd;
+            if (isDirectory(src.c_str())) {
+                cmd = "cp -r \"" + src + "\" \"" + destPath + "\"";
+            } else {
+                cmd = "cp \"" + src + "\" \"" + destPath + "\"";
+            }
+
+            int ret = system(cmd.c_str());
+            if (ret != 0) {
+                throw runtime_error("Copy failed for: " + src);
+            }
+
+            // record ONLY after successful copy
+            pastedFiles.push_back(destPath);
         }
+
+        // -------- COMMIT --------
+        pastedFiles.clear();          // nothing to rollback now
+        invalidateDirCache(currPath);
+        selectedFiles.clear();
+
+        posx(rows - 2, 0);
+        printf("\033[K");
+        printf("\033[1;32mPASTE COMPLETED\033[0m");
+        pos();
     }
+    catch (const exception &e) {
+        // -------- ROLLBACK --------
+        for (auto &path : pastedFiles) {
+            if (isDirectory(path.c_str())) {
+                string cmd = "rm -rf \"" + path + "\"";
+                system(cmd.c_str());
+            } else {
+                remove(path.c_str());
+            }
+        }
 
-    invalidateDirCache(currPath);
-    selectedFiles.clear();   // optional but recommended
+        logMessage(
+            string("[PASTE FAILED] ") +
+            e.what() +
+            " | FILE: " + __FILE__ +
+            " | LINE: " + to_string(__LINE__)
+        );
+
+        posx(rows - 2, 0);
+        printf("\033[K");
+        printf("\033[1;31mPASTE FAILED — ROLLED BACK\033[0m");
+        pos();
+    }
 }
-
-
-
-// void paste(){
-//     if(!clipboard.empty()){
-//         size_t posIdx = clipboard.find_last_of("/\\");
-//         string baseName = (posIdx != string::npos) ? clipboard.substr(posIdx + 1) : clipboard;
-        
-//         string destPath = string(currPath) + "/" + baseName;
-//         string cmd;
-//         if (isDirectory(clipboard.c_str())) {
-//             cmd = "cp -r \"" + clipboard + "\" \"" + destPath + "\"";
-//         } else {
-//             cmd = "cp \"" + clipboard + "\" \"" + destPath + "\"";
-//         }
-//         system(cmd.c_str());
-//         invalidateDirCache(currPath);
-//     }
-// }
 
 void deleteSelectedItems() {
     vector<string> targets;
@@ -109,7 +156,7 @@ void deleteSelectedItems() {
         targets.push_back(string(currPath) + "/" + file);
     }
 
-    // Confirmation screen
+    // ---- Confirmation ----
     system("clear");
     posx(1,1);
     cout << "Delete " << targets.size() << " item(s)? (y/n): ";
@@ -121,48 +168,65 @@ void deleteSelectedItems() {
         return;
     }
 
-    // Delete all
-    for (auto &path : targets) {
-        if (isDirectory(path.c_str())) {
-            string cmd = "rm -rf \"" + path + "\"";
-            system(cmd.c_str());
-        } else {
-            string cmd = "rm \"" + path + "\"";
-            system(cmd.c_str());
+    string binDir = string(currPath) + "/.trash_" + to_string(getpid());
+    vector<pair<string, string>> movedItems;
+
+    try {
+        // ---- Create bin directory ----
+        if (mkdir(binDir.c_str(), 0700) != 0) {
+            throw runtime_error("Failed to create bin directory");
         }
+
+        // ---- Move items to bin ----
+        for (auto &path : targets) {
+            size_t posIdx = path.find_last_of("/\\");
+            string baseName = path.substr(posIdx + 1);
+
+            string binPath = binDir + "/" + baseName;
+
+            if (rename(path.c_str(), binPath.c_str()) != 0) {
+                throw runtime_error("Failed to move: " + path);
+            }
+
+            movedItems.emplace_back(path, binPath);
+        }
+
+        // ---- Permanently delete bin ----
+        string cmd = "rm -rf \"" + binDir + "\"";
+        system(cmd.c_str());
+
+        // ---- Commit ----
+        selectedFiles.clear();
+        invalidateDirCache(currPath);
+
+        openDirectory(currPath, up_screen, down_screen);
+        displayFiles();
+        pos();
     }
+    catch (const exception &e) {
+        // ---- ROLLBACK ----
+        for (auto &p : movedItems) {
+            // move back: bin → original location
+            rename(p.second.c_str(), p.first.c_str());
+        }
 
-    selectedFiles.clear();
-    invalidateDirCache(currPath);
+        // cleanup bin if exists
+        string cleanupCmd = "rm -rf \"" + binDir + "\"";
+        system(cleanupCmd.c_str());
 
-    openDirectory(currPath, up_screen, down_screen);
-    displayFiles();
-    pos();
+        logMessage(
+            string("[DELETE FAILED] ") +
+            e.what() +
+            " | FILE: " + __FILE__ +
+            " | LINE: " + to_string(__LINE__)
+        );
+
+        posx(rows - 2, 0);
+        printf("\033[K");
+        printf("\033[1;31mDELETE FAILED — RECOVERED\033[0m");
+        pos();
+    }
 }
-
-// void deleteItem(string selectedFile) {
-//     string targetPath = string(currPath) + "/" + selectedFile;
-
-//     // Clear screen and ask for confirmation
-//     system("clear");
-//     posx(1,1);
-//     cout<<"Are you sure you want to delete '"+(string)selectedFile.c_str()+"' ? (y/n): ";
-//     // printf("\033[1;33mAre you sure you want to delete '%s'? (y/n): \033[0m", selectedFile.c_str());
-
-//     string choice=get_input();
-//     // getline(cin, choice);
-
-//     if (choice == "y" || choice == "Y") {
-//         string cmd;
-//         if (isDirectory(targetPath.c_str())) {
-//             cmd = "rm -r \"" + targetPath + "\"";  // Delete directory recursively
-//         } else {
-//             cmd = "rm \"" + targetPath + "\"";  // Delete file
-//         }
-//         system(cmd.c_str());
-//     }
-//     invalidateDirCache(currPath);
-// }
 
 void renameItem(string selectedFile, string newName) {
     string oldPath = string(currPath) + "/" + selectedFile;
