@@ -6,16 +6,17 @@
 unsigned int rows,cols, rowSize, colSize;
 int resized, CONFIG_WORKERS;
 
+
 char *root;
 
-void logMessage(const std::string& message) {
-    std::ofstream logFile("logs/debug.log", std::ios_base::app); // Open log file in append mode
-    if (logFile.is_open()) {
-        logFile << message << std::endl; // Write message to file
-    } else {
-        std::cerr << "Error opening log file!" << std::endl;
-    }
-}
+// void logMessage(const std::string& message) {
+//     std::ofstream logFile("logs/debug.log", std::ios_base::app); // Open log file in append mode
+//     if (logFile.is_open()) {
+//         logFile << message << std::endl; // Write message to file
+//     } else {
+//         std::cerr << "Error opening log file!" << std::endl;
+//     }
+// }
 
 void get_terminal_size() {
     struct winsize w;

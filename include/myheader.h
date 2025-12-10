@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <fstream>
+#include<sstream>
 #include <cctype>
 #include <cstdlib>
 #include <sys/ioctl.h>
@@ -33,6 +34,25 @@ struct NavState {
     unsigned int up_screen;  // Starting index of files being displayed
 };
 
+struct word_position
+{
+  int file_id;
+};
+
+class InvertedIndex
+{
+  map<string, set<int>> Dictionary;
+  map<string, int> fileToId;
+  vector<string> idToFile;
+
+public:
+    void indexPath(const string &path);
+    void indexAllOnce(queue<string> &paths);
+
+    void show_files();
+    void search(const string &word);
+};
+
 extern char *root;
 extern char *currPath;
 extern char *prevPath;
@@ -49,6 +69,9 @@ extern unordered_map<string, vector<string>> dirCache;
 extern unordered_set<string> selectedFiles;
 extern int resized;
 extern int CONFIG_WORKERS;
+extern queue<string> indexQueue;
+extern InvertedIndex globalIndex;
+
 
 // Global Method Declarations
 int getDirectoryCount(const char *path);
