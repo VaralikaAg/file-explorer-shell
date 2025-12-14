@@ -41,17 +41,27 @@ struct word_position
 
 class InvertedIndex
 {
-  map<string, set<int>> Dictionary;
-  map<string, int> fileToId;
-  vector<string> idToFile;
+    /* FILE ID MAPPING */
+    unordered_map<string, int> fileToId;
+    vector<string> idToFile;
+
+    /* WORD ID MAPPING */
+    unordered_map<string, int> wordToId;
+    vector<string> idToWord;
+
+    /* INVERTED INDEX (word_id → set<file_id>) */
+    unordered_map<int, unordered_set<int>> invertedIndex;
+
+    /* FORWARD INDEX (file_id → set<word_id>) */
+    unordered_map<int, unordered_set<int>> forwardIndex;
 
 public:
     void indexPath(const string &path);
     void indexAllOnce(queue<string> &paths);
-
-    void show_files();
     void search(const string &word);
+    int getWordId(const string &word);
 };
+
 
 extern char *root;
 extern char *currPath;
@@ -109,3 +119,4 @@ void get_terminal_size();
 void getFileDetails(const string &path);
 off_t getFolderSizeMT(const string &rootPath, int numThreads);
 string humanReadableSize(off_t size);
+string normalizeWord(const string &input);

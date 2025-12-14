@@ -1,0 +1,31 @@
+Starting offline indexing...
+Root directory: /home
+Traversal complete. Total paths queued: 3683
+Indexing started...
+Indexing finished.
+Indexing took: 32 seconds
+Searching for word: hiii
+Search took: 0 ms
+Results for word: hiii
+/home/varalika/snap/firefox/common/.mozilla/firefox/ko6z5n3q.default/storage/default/https+++web.telegram.org/cache/morgue/118/{1b6a5807-74a9-4cb8-9e8a-722362c53b76}.final
+Search done for word: hiii
+Starting offline indexing...
+Root directory: /home
+Traversal complete. Total paths queued: 3690
+Indexing started...
+Indexing finished.
+Indexing took: 26 secondsStarting offline indexing...
+Root directory: /home
+Traversal complete. Total paths queued: 3712
+Indexing started...
+Indexing finished.
+Indexing took: 25 seconds
+Searching for query: hello world
+Search took: 0 ms
+Matched files:
+/home/varalika/.config/Code/User/History/1600377c/QNSr.txt
+/home/varalika/snap/firefox/common/.cache/mozilla/firefox/ko6z5n3q.default/cache2/entries/360DE1F3E174E84794C36651DD126686164A2F9A
+/home/varalika/snap/firefox/common/.mozilla/firefox/ko6z5n3q.default/ExperimentStoreData.json
+/home/varalika/snap/firefox/common/.mozilla/firefox/Profile Groups/fd4b07ad.sqlite
+/home/varalika/Desktop/Varalika/file-explorer-shell/new_file.txt
+Search done for query: hello world
