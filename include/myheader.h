@@ -39,6 +39,13 @@ struct word_position
   int file_id;
 };
 
+enum class RectifyAction {
+    CREATE,
+    COPY,
+    RENAME,
+    DELETE
+};
+
 class InvertedIndex
 {
     /* FILE ID MAPPING */
@@ -60,7 +67,14 @@ public:
     void indexAllOnce(queue<string> &paths);
     void search(const string &word);
     int getWordId(const string &word);
+    void rectifyIndex(
+        RectifyAction type,
+        const vector<string>& newPaths = {},
+        const vector<string>& oldPaths = {}
+    );
+    void removePath(const string &path);
 };
+
 
 
 extern char *root;
@@ -81,6 +95,7 @@ extern int resized;
 extern int CONFIG_WORKERS;
 extern queue<string> indexQueue;
 extern InvertedIndex globalIndex;
+extern vector<int> freeFileIds;
 
 
 // Global Method Declarations
@@ -120,3 +135,5 @@ void getFileDetails(const string &path);
 off_t getFolderSizeMT(const string &rootPath, int numThreads);
 string humanReadableSize(off_t size);
 string normalizeWord(const string &input);
+void traverse(const string &root);
+bool isUnderCurrentDir(const string &path);

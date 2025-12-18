@@ -84,6 +84,39 @@ void commandMode()
         searchCommand(check_dir, check_file, filename);
 
     }
+    else if (command == "find") {
+        if (args.size() < 2) return;
+
+        bool dirOnly = false;
+        size_t i = 1;
+
+        if (args[1] == "--dir") {
+            dirOnly = true;
+            i = 2;
+        }
+
+        string query;
+        for (; i < args.size(); i++) {
+            if (!query.empty()) query += " ";
+            query += args[i];
+        }
+
+        globalIndex.search(query);
+
+        /* ---------- FILTER BY CURRENT DIR ---------- */
+        if (dirOnly) {
+            vector<string> filtered;
+            for (auto &p : foundPaths) {
+                if (isUnderCurrentDir(p)) {
+                    filtered.push_back(p);
+                }
+            }
+            foundPaths.swap(filtered);
+        }
+
+        displaySearchResults();
+    }
+
     else if (command == "--help" || command == "help") {
         showHelp();
         return;

@@ -1,5 +1,8 @@
 #include "myheader.h"
 
+InvertedIndex globalIndex;
+vector<int> freeFileIds;
+
 bool isRegularFile(const string &path) {
     struct stat st;
     return (stat(path.c_str(), &st) == 0 && S_ISREG(st.st_mode));
@@ -29,9 +32,19 @@ void InvertedIndex::indexPath(const string &path)
     /* ---------- FILE ID ---------- */
     auto fit = fileToId.find(path);
     if (fit == fileToId.end()) {
-        file_id = idToFile.size();
+
+        if (!freeFileIds.empty()) {
+            // reuse deleted file id
+            file_id = freeFileIds.back();
+            freeFileIds.pop_back();
+            idToFile[file_id] = path;
+        } else {
+            // create new file id
+            file_id = idToFile.size();
+            idToFile.push_back(path);
+        }
+
         fileToId[path] = file_id;
-        idToFile.push_back(path);
     } else {
         file_id = fit->second;
     }
@@ -83,74 +96,187 @@ void InvertedIndex::indexAllOnce(queue<string> &paths)
     }
 }
 
+// void InvertedIndex::search(const string &query)
+// {
+//     auto t1 = chrono::high_resolution_clock::now();
+
+//     stringstream ss(query);
+//     string token;
+
+//     vector<int> queryWordIds;
+
+//     /* 1️⃣ Normalize words & map to word IDs */
+//     while (ss >> token) {
+//         string clean = normalizeWord(token);
+//         if (clean.empty())
+//             continue;
+
+//         auto wit = wordToId.find(clean);
+//         if (wit == wordToId.end()) {
+//             logMessage("Word not found: " + clean);
+//             return; // AND query → fail early
+//         }
+
+//         queryWordIds.push_back(wit->second);
+//     }
+
+//     if (queryWordIds.empty()) {
+//         logMessage("Empty or invalid query");
+//         return;
+//     }
+
+//     /* 2️⃣ Count file occurrences */
+//     unordered_map<int, int> fileCounter;
+
+//     for (int word_id : queryWordIds) {
+//         auto it = invertedIndex.find(word_id);
+//         if (it == invertedIndex.end())
+//             return;
+
+//         for (int file_id : it->second) {
+//             fileCounter[file_id]++;
+//         }
+//     }
+
+//     /* 3️⃣ Filter files present in ALL words */
+//     vector<int> results;
+//     int requiredCount = queryWordIds.size();
+
+//     for (auto &p : fileCounter) {
+//         if (p.second == requiredCount) {
+//             results.push_back(p.first);
+//         }
+//     }
+
+//     auto t2 = chrono::high_resolution_clock::now();
+
+//     logMessage("Search took: " +
+//         to_string(chrono::duration_cast<chrono::milliseconds>(t2 - t1).count()) +
+//         " ms");
+
+//     /* 4️⃣ Output */
+//     if (results.empty()) {
+//         logMessage("No files matched all query words");
+//         return;
+//     }
+
+//     logMessage("Matched files:");
+//     for (int file_id : results) {
+//         logMessage(idToFile[file_id]);
+//     }
+// }
+
 void InvertedIndex::search(const string &query)
 {
-    auto t1 = chrono::high_resolution_clock::now();
+    foundPaths.clear();   // GLOBAL vector<string>
+
+    // auto t1 = chrono::high_resolution_clock::now();
 
     stringstream ss(query);
     string token;
-
     vector<int> queryWordIds;
 
-    /* 1️⃣ Normalize words & map to word IDs */
+    /* 1️⃣ Normalize + map to word IDs */
     while (ss >> token) {
         string clean = normalizeWord(token);
-        if (clean.empty())
-            continue;
+        if (clean.empty()) continue;
 
-        auto wit = wordToId.find(clean);
-        if (wit == wordToId.end()) {
-            logMessage("Word not found: " + clean);
-            return; // AND query → fail early
-        }
+        auto it = wordToId.find(clean);
+        if (it == wordToId.end())
+            return;   // AND semantics → fail early
 
-        queryWordIds.push_back(wit->second);
+        queryWordIds.push_back(it->second);
     }
 
-    if (queryWordIds.empty()) {
-        logMessage("Empty or invalid query");
-        return;
-    }
+    if (queryWordIds.empty()) return;
 
-    /* 2️⃣ Count file occurrences */
-    unordered_map<int, int> fileCounter;
+    /* 2️⃣ Count files */
+    unordered_map<int,int> fileCounter;
 
-    for (int word_id : queryWordIds) {
-        auto it = invertedIndex.find(word_id);
+    for (int wid : queryWordIds) {
+        auto it = invertedIndex.find(wid);
         if (it == invertedIndex.end())
             return;
 
-        for (int file_id : it->second) {
-            fileCounter[file_id]++;
+        for (int fid : it->second) {
+            fileCounter[fid]++;
         }
     }
 
-    /* 3️⃣ Filter files present in ALL words */
-    vector<int> results;
-    int requiredCount = queryWordIds.size();
-
+    /* 3️⃣ Intersection */
+    int required = queryWordIds.size();
     for (auto &p : fileCounter) {
-        if (p.second == requiredCount) {
-            results.push_back(p.first);
+        if (p.second == required) {
+            if (!idToFile[p.first].empty())
+                foundPaths.push_back(idToFile[p.first]);
         }
     }
 
-    auto t2 = chrono::high_resolution_clock::now();
+    // auto t2 = chrono::high_resolution_clock::now();
+    // lastSearchTimeMs =
+    //     chrono::duration_cast<chrono::milliseconds>(t2 - t1).count();
+}
 
-    logMessage("Search took: " +
-        to_string(chrono::duration_cast<chrono::milliseconds>(t2 - t1).count()) +
-        " ms");
+void InvertedIndex::rectifyIndex(
+    RectifyAction action,
+    const vector<string>& oldPaths,
+    const vector<string>& newPaths
+)
+{
+    switch (action) {
 
-    /* 4️⃣ Output */
-    if (results.empty()) {
-        logMessage("No files matched all query words");
-        return;
-    }
+    case RectifyAction::CREATE:
+    case RectifyAction::COPY:
+        // index all new paths
+        for (const auto &p : newPaths) {
+            indexPath(p);
+        }
+        break;
 
-    logMessage("Matched files:");
-    for (int file_id : results) {
-        logMessage(idToFile[file_id]);
+    case RectifyAction::RENAME:
+        // 1-to-1 mapping: oldPaths[i] → newPaths[i]
+        for (size_t i = 0; i < oldPaths.size(); i++) {
+            removePath(oldPaths[i]);
+            indexPath(newPaths[i]);
+        }
+        break;
+
+    case RectifyAction::DELETE:
+        // remove all old paths
+        for (const auto &p : oldPaths) {
+            removePath(p);
+        }
+        break;
     }
 }
 
+void InvertedIndex::removePath(const string &path)
+{
+    auto fit = fileToId.find(path);
+    if (fit == fileToId.end())
+        return;
 
+    int file_id = fit->second;
+
+    /* 1️⃣ Remove from forward index */
+    auto fwit = forwardIndex.find(file_id);
+    if (fwit != forwardIndex.end()) {
+        for (int word_id : fwit->second) {
+            auto iit = invertedIndex.find(word_id);
+            if (iit != invertedIndex.end()) {
+                iit->second.erase(file_id);
+
+                // cleanup empty postings
+                if (iit->second.empty()) {
+                    invertedIndex.erase(word_id);
+                }
+            }
+        }
+        forwardIndex.erase(file_id);
+    }
+
+    /* 2️⃣ Remove file mappings */
+    fileToId.erase(path);
+    idToFile[file_id] = "";
+    freeFileIds.push_back(file_id);
+}

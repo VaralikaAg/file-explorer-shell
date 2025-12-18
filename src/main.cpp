@@ -5,18 +5,10 @@
 #define pos() fprintf(stdout, "\033[%d;%dH", xcurr, ycurr)
 unsigned int rows,cols, rowSize, colSize;
 int resized, CONFIG_WORKERS;
+queue<string> indexQueue;
 
 
 char *root;
-
-// void logMessage(const std::string& message) {
-//     std::ofstream logFile("logs/debug.log", std::ios_base::app); // Open log file in append mode
-//     if (logFile.is_open()) {
-//         logFile << message << std::endl; // Write message to file
-//     } else {
-//         std::cerr << "Error opening log file!" << std::endl;
-//     }
-// }
 
 void get_terminal_size() {
     struct winsize w;
@@ -37,7 +29,22 @@ int main(int argc, char *argv[]){
     rowSize=rows-10;
     colSize=cols/3;
     resized=0;
-    // logMessage(to_string(colSize));
+    // logMessage(to_string(colSize))
+
+    /*********** INDEXING *********/
+    cout << "Process ID: " << getpid() << endl;
+    string main_root = "/home"; // fixed root
+    logMessage("Starting offline indexing...");
+    logMessage("Root directory: " + main_root);
+    traverse(main_root);
+    logMessage("Traversal complete. Total paths queued: " + to_string(indexQueue.size()));
+    logMessage("Indexing started...");
+    auto t1 = chrono::high_resolution_clock::now();
+    globalIndex.indexAllOnce(indexQueue);
+    auto t2 = chrono::high_resolution_clock::now();
+    logMessage("Indexing finished.");
+    logMessage("Indexing took: " + to_string(chrono::duration_cast<chrono::seconds>(t2 - t1).count()) + " seconds");
+
 
     if(argc==1){
         string s = ".";

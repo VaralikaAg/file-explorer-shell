@@ -15,32 +15,16 @@ SRC = src/dir_functions.cpp \
       src/search.cpp \
       src/file_details.cpp \
       src/utils.cpp \
-      src/invertedIndex.cpp \
-	  src/utils2.cpp
+      src/invertedIndex.cpp
 
 OBJ = $(SRC:src/%.cpp=$(OBJDIR)/%.o)
 
-# ---------------- Offline Indexer ----------------
-TARGET2 = $(BINDIR)/main2
-
-SRC2 = src/main2.cpp \
-       src/invertedIndex.cpp \
-	   src/utils2.cpp
-
-OBJ2 = $(SRC2:src/%.cpp=$(OBJDIR)/%.o)
-
-DEPS = include/myheader.h
-
 # ---------------- Rules ----------------
-all: $(TARGET) $(TARGET2)
+all: $(TARGET)
 
 $(TARGET): $(OBJ)
 	@mkdir -p $(BINDIR)
 	$(CC) $(CFLAGS) -o $@ $(OBJ)
-
-$(TARGET2): $(OBJ2)
-	@mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) -o $@ $(OBJ2)
 
 $(OBJDIR)/%.o: src/%.cpp $(DEPS)
 	@mkdir -p $(OBJDIR)
