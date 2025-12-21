@@ -111,11 +111,13 @@ void paste() {
         }
 
         // -------- COMMIT --------
-        globalIndex.rectifyIndex(
-            RectifyAction::COPY,
-            {},
-            pastedFiles
-        );
+        if (CONFIG_INDEXING) {
+            globalIndex.rectifyIndex(
+                RectifyAction::COPY,
+                {},
+                pastedFiles
+            );
+        }
         pastedFiles.clear();          // nothing to rollback now
         invalidateDirCache(currPath);
         selectedFiles.clear();
@@ -201,11 +203,13 @@ void deleteSelectedItems() {
         system(cmd.c_str());
 
         // ---- Commit ----
-        globalIndex.rectifyIndex(
-            RectifyAction::DELETE,
-            targets,
-            {}
-        );
+        if (CONFIG_INDEXING) {
+            globalIndex.rectifyIndex(
+                RectifyAction::DELETE,
+                targets,
+                {}
+            );
+        }
 
         selectedFiles.clear();
         invalidateDirCache(currPath);
@@ -258,11 +262,13 @@ void renameItem(string selectedFile, string newName) {
     string newPath = string(currPath) + "/" + newName;
 
     if (rename(oldPath.c_str(), newPath.c_str()) == 0) {
-        globalIndex.rectifyIndex(
-            RectifyAction::RENAME,
-            { oldPath },
-            { newPath }
-        );
+        if (CONFIG_INDEXING) {
+            globalIndex.rectifyIndex(
+                RectifyAction::RENAME,
+                { oldPath },
+                { newPath }
+            );
+        }
 
         invalidateDirCache(currPath);
         openDirectory(currPath, up_screen, down_screen);
@@ -291,11 +297,13 @@ void createFile(string fileName) {
     if (file) {
         file.close();
     }
-    globalIndex.rectifyIndex(
-        RectifyAction::CREATE,
-        {},
-        { filePath }
-    );
+    if (CONFIG_INDEXING) {
+        globalIndex.rectifyIndex(
+            RectifyAction::CREATE,
+            {},
+            { filePath }
+        );
+    }
     // displayFiles();
     invalidateDirCache(currPath);
     openDirectory(currPath, up_screen, down_screen);
@@ -318,11 +326,13 @@ void createDirectory(string dirName) {
 
     string dirPath = string(currPath) + "/" + dirName;
     if (mkdir(dirPath.c_str(), 0777) == 0) {
-        globalIndex.rectifyIndex(
-            RectifyAction::CREATE,
-            {},
-            { dirPath }
-        );
+        if (CONFIG_INDEXING) {
+            globalIndex.rectifyIndex(
+                RectifyAction::CREATE,
+                {},
+                { dirPath }
+            );
+        }
         invalidateDirCache(currPath);
         openDirectory(currPath, up_screen, down_screen);
         update_position(dirName);

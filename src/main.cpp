@@ -5,6 +5,8 @@
 #define pos() fprintf(stdout, "\033[%d;%dH", xcurr, ycurr)
 unsigned int rows,cols, rowSize, colSize;
 int resized, CONFIG_WORKERS;
+bool CONFIG_INDEXING;
+string CONFIG_INDEXING_ROOT;
 queue<string> indexQueue;
 
 
@@ -33,18 +35,30 @@ int main(int argc, char *argv[]){
 
     /*********** INDEXING *********/
     cout << "Process ID: " << getpid() << endl;
-    string main_root = "/home"; // fixed root
-    logMessage("Starting offline indexing...");
-    logMessage("Root directory: " + main_root);
-    traverse(main_root);
-    logMessage("Traversal complete. Total paths queued: " + to_string(indexQueue.size()));
-    logMessage("Indexing started...");
-    auto t1 = chrono::high_resolution_clock::now();
-    globalIndex.indexAllOnce(indexQueue);
-    auto t2 = chrono::high_resolution_clock::now();
-    logMessage("Indexing finished.");
-    logMessage("Indexing took: " + to_string(chrono::duration_cast<chrono::seconds>(t2 - t1).count()) + " seconds");
+    string main_root = CONFIG_INDEXING_ROOT;
+    if (CONFIG_INDEXING) {
 
+        logMessage("Starting offline indexing...");
+        traverse(main_root);
+
+        logMessage("Traversal complete. Total paths queued: " +
+                to_string(indexQueue.size()));
+
+        logMessage("Indexing started...");
+        auto t1 = chrono::high_resolution_clock::now();
+
+        globalIndex.indexAllOnce(indexQueue);
+
+        auto t2 = chrono::high_resolution_clock::now();
+        logMessage("Indexing finished.");
+        logMessage("Indexing took: " +
+            to_string(
+                chrono::duration_cast<chrono::seconds>(t2 - t1).count()
+            ) + " seconds");
+
+    } else {
+        logMessage("Indexing skipped (disabled in config)");
+    }
 
     if(argc==1){
         string s = ".";

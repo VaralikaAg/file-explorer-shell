@@ -88,8 +88,35 @@ void loadConfig() {
                 logMessage("Invalid workers value, using default");
                 CONFIG_WORKERS = 4;
             }
-            break;
         }
+        /* indexing flag */
+        else if (line.find("indexing:") != std::string::npos) {
+            std::string val = line.substr(line.find(":") + 1);
+
+            if (val == "true" || val == "1" || val == "yes") {
+                CONFIG_INDEXING = true;
+            } else {
+                CONFIG_INDEXING = false;
+            }
+
+            logMessage(
+                std::string("Indexing ") +
+                (CONFIG_INDEXING ? "ENABLED" : "DISABLED")
+            );
+        }
+        else if (line.find("indexing_root:") != std::string::npos) {
+
+            std::string root = line.substr(line.find(":") + 1);
+
+            if (!root.empty() && root[0] == '/') {
+                CONFIG_INDEXING_ROOT = root;
+                logMessage("Indexing root set to: " + CONFIG_INDEXING_ROOT);
+            } else {
+                logMessage("Invalid indexing_root, using default: /home");
+                CONFIG_INDEXING_ROOT = "/home";
+            }
+        }
+
     }
 
     file.close();

@@ -85,8 +85,6 @@ void InvertedIndex::indexPath(const string &path)
     fp.close();
 }
 
-
-
 void InvertedIndex::indexAllOnce(queue<string> &paths)
 {
     while (!paths.empty()) {
@@ -95,76 +93,6 @@ void InvertedIndex::indexAllOnce(queue<string> &paths)
         indexPath(path);
     }
 }
-
-// void InvertedIndex::search(const string &query)
-// {
-//     auto t1 = chrono::high_resolution_clock::now();
-
-//     stringstream ss(query);
-//     string token;
-
-//     vector<int> queryWordIds;
-
-//     /* 1️⃣ Normalize words & map to word IDs */
-//     while (ss >> token) {
-//         string clean = normalizeWord(token);
-//         if (clean.empty())
-//             continue;
-
-//         auto wit = wordToId.find(clean);
-//         if (wit == wordToId.end()) {
-//             logMessage("Word not found: " + clean);
-//             return; // AND query → fail early
-//         }
-
-//         queryWordIds.push_back(wit->second);
-//     }
-
-//     if (queryWordIds.empty()) {
-//         logMessage("Empty or invalid query");
-//         return;
-//     }
-
-//     /* 2️⃣ Count file occurrences */
-//     unordered_map<int, int> fileCounter;
-
-//     for (int word_id : queryWordIds) {
-//         auto it = invertedIndex.find(word_id);
-//         if (it == invertedIndex.end())
-//             return;
-
-//         for (int file_id : it->second) {
-//             fileCounter[file_id]++;
-//         }
-//     }
-
-//     /* 3️⃣ Filter files present in ALL words */
-//     vector<int> results;
-//     int requiredCount = queryWordIds.size();
-
-//     for (auto &p : fileCounter) {
-//         if (p.second == requiredCount) {
-//             results.push_back(p.first);
-//         }
-//     }
-
-//     auto t2 = chrono::high_resolution_clock::now();
-
-//     logMessage("Search took: " +
-//         to_string(chrono::duration_cast<chrono::milliseconds>(t2 - t1).count()) +
-//         " ms");
-
-//     /* 4️⃣ Output */
-//     if (results.empty()) {
-//         logMessage("No files matched all query words");
-//         return;
-//     }
-
-//     logMessage("Matched files:");
-//     for (int file_id : results) {
-//         logMessage(idToFile[file_id]);
-//     }
-// }
 
 void InvertedIndex::search(const string &query)
 {

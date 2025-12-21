@@ -93,6 +93,8 @@ extern unordered_map<string, vector<string>> dirCache;
 extern unordered_set<string> selectedFiles;
 extern int resized;
 extern int CONFIG_WORKERS;
+extern bool CONFIG_INDEXING;
+extern string CONFIG_INDEXING_ROOT;
 extern queue<string> indexQueue;
 extern InvertedIndex globalIndex;
 extern vector<int> freeFileIds;
