@@ -139,3 +139,4 @@ string humanReadableSize(off_t size);
 string normalizeWord(const string &input);
 void traverse(const string &root);
 bool isUnderCurrentDir(const string &path);
+bool isValidDirectory(const string &path);

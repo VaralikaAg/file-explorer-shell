@@ -36,7 +36,16 @@ int main(int argc, char *argv[]){
     /*********** INDEXING *********/
     cout << "Process ID: " << getpid() << endl;
     string main_root = CONFIG_INDEXING_ROOT;
+
     if (CONFIG_INDEXING) {
+
+        if (!isValidDirectory(main_root)) {
+            fprintf(stderr,
+                "\033[1;31mError:\033[0m indexing_root '%s' is not a valid directory\n",
+                main_root.c_str()
+            );
+            exit(EXIT_FAILURE);   // exit code != 0
+        }
 
         logMessage("Starting offline indexing...");
         traverse(main_root);

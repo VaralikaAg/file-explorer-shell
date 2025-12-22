@@ -43,30 +43,53 @@ void commandMode()
         args.push_back(word);
     }
 
-    if (args.empty()) return; // If no command entered, return
+    if (args.empty()){
+        displayFiles();
+        return;
+    } // If no command entered, return
 
     string command = args[0];
 
     if (command == "rename" && args.size()>1) {
+        if(args.size()<=1){
+            displayFiles();
+            return;
+        }
         string selectedFile = fileList[xcurr + up_screen - 1];
         string new_name = args[1];
         renameItem(selectedFile, new_name);
     }
     else if (command == "create_file" && args.size()>1) {
+        if(args.size()<=1){
+            displayFiles();
+            return;
+        }
         string new_name = args[1];
         createFile(new_name);
     } 
     else if (command == "create_dir" && args.size()>1){
+        if(args.size()<=1){
+            displayFiles();
+            return;
+        }
         string new_name = args[1];
         createDirectory(new_name);
     }
     else if (command == "cd" && args.size()>1){
+        if(args.size()<=1){
+            displayFiles();
+            return;
+        }
         string absPath=args[1];
         for (int i = 2; i < static_cast<int>(args.size()); i++) absPath+=" "+args[i];
         // logMessage(absPath);
         navigateToAbsolutePath(absPath);
     }
     else if (command == "search"){
+        if(args.size()<=1){
+            displayFiles();
+            return;
+        }
         string flag, filename;
         bool check_dir = true, check_file = true;
 
@@ -85,7 +108,10 @@ void commandMode()
 
     }
     else if (command == "find") {
-        if (args.size() < 2) return;
+        if(args.size()<=1){
+            displayFiles();
+            return;
+        }
 
         bool dirOnly = false;
         size_t i = 1;
