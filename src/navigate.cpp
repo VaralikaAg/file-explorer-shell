@@ -158,29 +158,6 @@ void displayFiles() {
     clearScreen;
     setCursorRed();
 
-    // Printing previous directory
-    // if (backStack.empty()) {
-    //     posx(1, 3);
-    //     printf("\033[1;31mNo Items\033[0m\n");
-    // }
-    // else{
-    //     NavState prevState = backStack.top();
-    //     prevPath = new char[prevState.path.length() + 1];
-    //     strcpy(prevPath, prevState.path.c_str()); 
-    //     // logMessage(to_string(prevState.xcurr));
-    //     // logMessage(to_string(prevState.up_screen));
-
-    //     // openDirectory(prevPath, prev_up_screen, prev_down_screen);
-    //     openCurrDirectory(prevPath);
-    //     // xcurr = prevState.xcurr;
-    //     // prev_up_screen = prevState.up_screen;
-    //     prev_down_screen = fileList.size() - prev_up_screen - rowSize;
-    //     for (unsigned int i = prev_up_screen, line=1; i < prev_up_screen + rowSize && i < fileList.size(); i++, line++) {
-    //         posx(line, 3);
-    //         display(fileList[i].c_str(), prevPath);
-    //     }       
-    // }
-
     openCurrDirectory(currPath);
     // logMessage(currPath);
     for (unsigned int i = up_screen, line=1; i < up_screen + rowSize && i < fileList.size(); i++, line++) {
@@ -405,9 +382,9 @@ void navigate() {
         }
         else if (ch=='p'){
             paste();
-            openDirectory(currPath, up_screen, down_screen);
-            displayFiles();
-            pos();
+            // openDirectory(currPath, up_screen, down_screen);
+            // displayFiles();
+            // pos();
         }
         else if (ch == 'd') {
             deleteSelectedItems();

@@ -6,25 +6,63 @@ vector<string> clipboard;
 #define clearScreen fputs("\033[H\033[2J", stdout)
 #define setCursorRed() fprintf(stdout, "\033]12;#ff0000\007")
 
-string get_input(){
+// string get_input(){
+//     string commandLine;
+//     char ch;
+//     while (true) {
+//         ch = std::cin.get();  // Read one character at a time
+
+//         // Handle backspace (delete the last character)
+//         if (ch == '\b' || ch == 127) {  // '\b' is backspace, 127 is ASCII DEL
+//             if (!commandLine.empty()) {
+//                 std::cout << "\b \b";  // Move the cursor back, overwrite with space, and move back again
+//                 commandLine.pop_back();  // Remove the last character from the string
+//             }
+//         } else if (ch == '\n') {
+//             break;  // Exit loop when user presses "Enter"
+//         } else {
+//             commandLine.push_back(ch);  // Append other characters to the string
+//             cout << ch;  // Echo the character to the screen
+//         }
+//     }
+//     return commandLine;
+// }
+
+string get_input() {
     string commandLine;
     char ch;
-    while (true) {
-        ch = std::cin.get();  // Read one character at a time
 
-        // Handle backspace (delete the last character)
-        if (ch == '\b' || ch == 127) {  // '\b' is backspace, 127 is ASCII DEL
+    while (true) {
+        ch = getchar();   // use getchar(), not cin
+
+        /* ENTER */
+        if (ch == '\n' || ch == '\r') {
+            break;
+        }
+
+        /* BACKSPACE / DELETE */
+        if (ch == 127 || ch == '\b') {
             if (!commandLine.empty()) {
-                std::cout << "\b \b";  // Move the cursor back, overwrite with space, and move back again
-                commandLine.pop_back();  // Remove the last character from the string
+                printf("\b \b");
+                commandLine.pop_back();
             }
-        } else if (ch == '\n') {
-            break;  // Exit loop when user presses "Enter"
-        } else {
-            commandLine.push_back(ch);  // Append other characters to the string
-            cout << ch;  // Echo the character to the screen
+            continue;
+        }
+
+        /* ESC SEQUENCE (arrow keys, home, end, etc.) */
+        if (ch == 27) {   // ESC
+            getchar();    // skip '['
+            getchar();    // skip final char (A/B/C/D)
+            continue;     // IGNORE completely
+        }
+
+        /* Printable characters only */
+        if (isprint(ch)) {
+            commandLine.push_back(ch);
+            putchar(ch);
         }
     }
+
     return commandLine;
 }
 
@@ -84,6 +122,7 @@ void paste() {
     if (clipboard.empty()) return;
 
     vector<string> pastedFiles;   // tracks successfully pasted items
+    string cursor_path = "";
 
     try {
         for (auto &src : clipboard) {
@@ -91,6 +130,8 @@ void paste() {
             string baseName = (posIdx != string::npos)
                                 ? src.substr(posIdx + 1)
                                 : src;
+
+            cursor_path = baseName;
 
             string destPath = string(currPath) + "/" + baseName;
 
@@ -122,9 +163,9 @@ void paste() {
         invalidateDirCache(currPath);
         selectedFiles.clear();
 
-        posx(rows - 2, 0);
-        printf("\033[K");
-        printf("\033[1;32mPASTE COMPLETED\033[0m");
+        openDirectory(currPath, up_screen, down_screen);
+        update_position(cursor_path);
+        displayFiles();
         pos();
     }
     catch (const exception &e) {
