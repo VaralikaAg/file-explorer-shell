@@ -298,10 +298,14 @@ void navigate() {
                 else if(xcurr==rowSize && down_screen>0){
                     up_screen++;
                     down_screen--;
+                    // displayFiles();
+                    hideCursor();
                     displayFiles();
+                    pos();
+                    showCursor();
                 }
                 else{
-                    displayFiles();
+                    // displayFiles();
                 }
             }
 

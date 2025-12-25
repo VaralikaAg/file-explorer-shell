@@ -33,6 +33,8 @@ int main(int argc, char *argv[]){
     resized=0;
     // logMessage(to_string(colSize))
 
+    setvbuf(stdout, nullptr, _IOFBF, 1 << 20); // 1MB buffer
+
     /*********** INDEXING *********/
     cout << "Process ID: " << getpid() << endl;
     string main_root = CONFIG_INDEXING_ROOT;

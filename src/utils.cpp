@@ -1,5 +1,14 @@
 #include "myheader.h"
 
+void hideCursor() {
+    printf("\033[?25l");
+}
+
+void showCursor() {
+    printf("\033[?25h");
+}
+
+
 void normalizeCursor() {
     int total = fileList.size();
 

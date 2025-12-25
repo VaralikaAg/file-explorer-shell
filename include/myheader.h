@@ -140,3 +140,5 @@ string normalizeWord(const string &input);
 void traverse(const string &root);
 bool isUnderCurrentDir(const string &path);
 bool isValidDirectory(const string &path);
+void hideCursor();
+void showCursor();
