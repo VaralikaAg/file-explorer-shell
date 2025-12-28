@@ -150,6 +150,14 @@ void commandMode()
     else if(command == "q"){
         displayFiles();
     }
+    else {
+        showTempMessage(
+            "Invalid command. Type :help to see available commands",
+            1200
+        );
+        displayFiles();
+    }
+
     return;
 }
 

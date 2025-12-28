@@ -1,5 +1,7 @@
 #include "myheader.h"
 
+#define posx(x, y) fprintf(stdout, "\033[%d;%dH", x, y)  // Move to (x, y)
+
 void hideCursor() {
     printf("\033[?25l");
 }
@@ -8,6 +10,29 @@ void showCursor() {
     printf("\033[?25h");
 }
 
+void showTempMessage(const string &msg, int wait_ms=1000) {
+    posx(rows - 2, 0);
+    printf("\033[K");
+    printf("\033[1;31m%s\033[0m", msg.c_str());
+    fflush(stdout);
+
+    // Wait either for key press OR timeout
+    fd_set set;
+    struct timeval timeout;
+
+    FD_ZERO(&set);
+    FD_SET(STDIN_FILENO, &set);
+
+    timeout.tv_sec = wait_ms / 1000;
+    timeout.tv_usec = (wait_ms % 1000) * 1000;
+
+    select(STDIN_FILENO + 1, &set, NULL, NULL, &timeout);
+
+    // Clear message line
+    posx(rows - 2, 0);
+    printf("\033[K");
+    fflush(stdout);
+}
 
 void normalizeCursor() {
     int total = fileList.size();

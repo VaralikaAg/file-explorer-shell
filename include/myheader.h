@@ -142,3 +142,4 @@ bool isUnderCurrentDir(const string &path);
 bool isValidDirectory(const string &path);
 void hideCursor();
 void showCursor();
+void showTempMessage(const string &msg, int wait_ms);

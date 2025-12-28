@@ -6,28 +6,6 @@ vector<string> clipboard;
 #define clearScreen fputs("\033[H\033[2J", stdout)
 #define setCursorRed() fprintf(stdout, "\033]12;#ff0000\007")
 
-// string get_input(){
-//     string commandLine;
-//     char ch;
-//     while (true) {
-//         ch = std::cin.get();  // Read one character at a time
-
-//         // Handle backspace (delete the last character)
-//         if (ch == '\b' || ch == 127) {  // '\b' is backspace, 127 is ASCII DEL
-//             if (!commandLine.empty()) {
-//                 std::cout << "\b \b";  // Move the cursor back, overwrite with space, and move back again
-//                 commandLine.pop_back();  // Remove the last character from the string
-//             }
-//         } else if (ch == '\n') {
-//             break;  // Exit loop when user presses "Enter"
-//         } else {
-//             commandLine.push_back(ch);  // Append other characters to the string
-//             cout << ch;  // Echo the character to the screen
-//         }
-//     }
-//     return commandLine;
-// }
-
 string get_input() {
     string commandLine;
     char ch;
@@ -384,80 +362,120 @@ void createDirectory(string dirName) {
     }
 }
 
+// void showHelp() {
+//     clearScreen;  // full clear
+
+//     setCursorRed();
+//     posx(1, 5);
+//     printf("\033[1;33mCOMMAND MODE HELP\033[0m");
+
+//     posx(3, 5);
+//     printf("\033[1;36mrename <new_name>\033[0m");
+//     printf("        Rename selected file or directory");
+
+//     posx(4, 5);
+//     printf("\033[1;36mcreate_file <name>\033[0m");
+//     printf("       Create a new file");
+
+//     posx(5, 5);
+//     printf("\033[1;36mcreate_dir <name>\033[0m");
+//     printf("        Create a new directory");
+
+//     posx(6, 5);
+//     printf("\033[1;36mcd <absolute_path>\033[0m");
+//     printf("       Change directory");
+
+//     posx(7, 5);
+//     printf("\033[1;36msearch <name>\033[0m");
+//     printf("             Search file & directory");
+
+//     posx(8, 5);
+//     printf("\033[1;36msearch --file <name>\033[0m");
+//     printf("      Search only files");
+
+//     posx(9, 5);
+//     printf("\033[1;36msearch --dir <name>\033[0m");
+//     printf("      Search only directories");
+
+//     posx(10, 5);
+//     printf("\033[1;36mq\033[0m");
+//     printf("                         Exit command mode");
+
+//     posx(rows - 2, 5);
+//     printf("\033[1;32mPress any key to return to file explorer...\033[0m");
+
+//     posx(rows - 1, 0);
+//     fflush(stdout);
+
+//     getchar();
+
+//     // Restore file explorer
+//     displayFiles();
+//     pos();
+// }
+
 void showHelp() {
-    clearScreen;  // full clear
+    clearScreen;
 
-    setCursorRed();
     posx(1, 5);
-    printf("\033[1;33mCOMMAND MODE HELP\033[0m");
+    printf("\033[1;33mCOMMAND MODE HELP (:)\033[0m");
 
-    posx(3, 5);
+    int r = 3;
+
+    posx(r++, 5);
     printf("\033[1;36mrename <new_name>\033[0m");
-    printf("        Rename selected file or directory");
+    printf("        Rename selected file / directory");
 
-    posx(4, 5);
+    posx(r++, 5);
     printf("\033[1;36mcreate_file <name>\033[0m");
-    printf("       Create a new file");
+    printf("       Create a new file in current directory");
 
-    posx(5, 5);
+    posx(r++, 5);
     printf("\033[1;36mcreate_dir <name>\033[0m");
     printf("        Create a new directory");
 
-    posx(6, 5);
+    posx(r++, 5);
     printf("\033[1;36mcd <absolute_path>\033[0m");
-    printf("       Change directory");
+    printf("       Change directory using absolute path");
 
-    posx(7, 5);
+    posx(r++, 5);
     printf("\033[1;36msearch <name>\033[0m");
-    printf("             Search file & directory");
+    printf("             Search files & directories");
 
-    posx(8, 5);
+    posx(r++, 5);
     printf("\033[1;36msearch --file <name>\033[0m");
     printf("      Search only files");
 
-    posx(9, 5);
+    posx(r++, 5);
     printf("\033[1;36msearch --dir <name>\033[0m");
     printf("      Search only directories");
 
-    posx(10, 5);
+    posx(r++, 5);
+    printf("\033[1;36mfind <keywords>\033[0m");
+    printf("               Find paths using indexed search");
+
+    posx(r++, 5);
+    printf("\033[1;36mfind --dir <keywords>\033[0m");
+    printf("        Find directories under current path");
+
+    posx(r++, 5);
+    printf("\033[1;36mhelp | --help\033[0m");
+    printf("              Show this help screen");
+
+    posx(r++, 5);
     printf("\033[1;36mq\033[0m");
     printf("                         Exit command mode");
 
     posx(rows - 2, 5);
-    printf("\033[1;32mPress any key to return to file explorer...\033[0m");
+    printf("\033[1;32mPress any key to return...\033[0m");
 
-    posx(rows - 1, 0);
     fflush(stdout);
-
     getchar();
 
-    // Restore file explorer
     displayFiles();
     pos();
 }
 
-
-// void showHelp() {
-//     posx(rows-2, 0);
-//     printf("\033[K");
-//     printf("\033[1;33mCommand Mode Help\033[0m\n");
-
-//     posx(rows-1, 0);
-//     printf("\033[K");
-//     printf(
-//         "\033[1;36m"
-//         "rename <new_name>        - Rename selected file/dir\n"
-//         "create_file <name>       - Create a new file\n"
-//         "create_dir <name>        - Create a new directory\n"
-//         "cd <absolute_path>       - Change directory\n"
-//         "search [--file|--dir] <name> - Search item\n"
-//         "q                        - Exit command mode\n"
-//         "--help                   - Show this help\n"
-//         "\033[0m"
-//     );
-
-//     pos(); // restore cursor
-// }
 
 void navigateToAbsolutePath(string absPath) {
 
