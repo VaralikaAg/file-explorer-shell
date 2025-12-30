@@ -74,38 +74,52 @@ off_t getFolderSizeMT(const string &rootPath, int numThreads) {
                     return !dirQueue.empty() || done;
                 });
 
-                if (done) return;
+                if (done && dirQueue.empty())
+                    return;
 
                 currentDir = dirQueue.front();
                 dirQueue.pop();
             }
 
+            struct stat st;
+            if (lstat(currentDir.c_str(), &st) == 0) {
+                // COUNT DIRECTORY ITSELF
+                totalSize += st.st_blocks * 512;
+            }
+
             DIR *dir = opendir(currentDir.c_str());
-            if (dir) {
-                struct dirent *entry;
-                struct stat st;
+            if (!dir) {
+                if (--tasks == 0) {
+                    lock_guard<mutex> lock(mtx);
+                    done = true;
+                    cv.notify_all();
+                }
+                continue;
+            }
 
-                while ((entry = readdir(dir)) != nullptr) {
-                    string name = entry->d_name;
-                    if (name == "." || name == "..") continue;
+            struct dirent *entry;
+            while ((entry = readdir(dir)) != nullptr) {
+                string name = entry->d_name;
+                if (name == "." || name == "..") continue;
 
-                    string fullPath = currentDir + "/" + name;
+                string fullPath = currentDir + "/" + name;
 
-                    if (lstat(fullPath.c_str(), &st) == 0) {
-                        if (S_ISDIR(st.st_mode)) {
-                            {
-                                lock_guard<mutex> lock(mtx);
-                                dirQueue.push(fullPath);
-                                tasks++;
-                            }
-                            cv.notify_one();
-                        } else if (S_ISREG(st.st_mode)) {
-                            totalSize += st.st_size;
-                        }
+                if (lstat(fullPath.c_str(), &st) == 0) {
+                    
+                    if (S_ISDIR(st.st_mode)) {
+                        lock_guard<mutex> lock(mtx);
+                        dirQueue.push(fullPath);
+                        tasks++;
+                        cv.notify_one();
+                    }
+                    
+                    else{
+                        totalSize += st.st_blocks * 512;
                     }
                 }
-                closedir(dir);
             }
+
+            closedir(dir);
 
             if (--tasks == 0) {
                 lock_guard<mutex> lock(mtx);
