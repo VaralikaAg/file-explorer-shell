@@ -293,6 +293,12 @@ void navigate() {
                 else{
                     displayFiles();
                 }
+                sizeCancelFlag = true;
+                if (sizeWorker.joinable())
+                    sizeWorker.join();
+
+                sizeInProgress = false;
+
             }
 
             else if(ch=='B'){

@@ -98,6 +98,11 @@ extern string CONFIG_INDEXING_ROOT;
 extern queue<string> indexQueue;
 extern InvertedIndex globalIndex;
 extern vector<int> freeFileIds;
+extern std::atomic<bool> sizeCancelFlag;
+extern std::atomic<bool> sizeInProgress;
+extern std::atomic<off_t> lastComputedSize;
+extern std::thread sizeWorker;
+extern std::mutex sizeMutex;
 
 
 // Global Method Declarations

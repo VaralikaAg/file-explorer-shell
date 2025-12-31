@@ -1,5 +1,16 @@
 #include "myheader.h"
 
+#define pos() fprintf(stdout, "\033[%d;%dH", xcurr, ycurr)  // Move cursor
+#define posx(x, y) fprintf(stdout, "\033[%d;%dH", x, y)  // Move to (x, y)
+
+std::atomic<bool> sizeCancelFlag{false};
+std::atomic<bool> sizeInProgress{false};
+std::atomic<off_t> lastComputedSize{0};
+std::thread sizeWorker;
+std::mutex sizeMutex;
+
+std::atomic<long long> lastScanDuration{-1};
+
 string truncate(const string &str, size_t maxLength) {
     if (str.length() > maxLength) {
         return str.substr(0, maxLength) + "...";
@@ -22,35 +33,6 @@ string humanReadableSize(off_t size) {
     oss << fixed << setprecision(2) << sizeInUnit << " " << units[unitIndex];
     return oss.str();
 }
-
-// off_t getFolderSize(const string &folderPath) {
-//     DIR *dir = opendir(folderPath.c_str());
-//     if (!dir) return 0;
-
-//     struct dirent *entry;
-//     struct stat entryStat;
-//     off_t totalSize = 0;
-
-//     while ((entry = readdir(dir)) != nullptr) {
-//         string name = entry->d_name;
-
-//         // Skip . and ..
-//         if (name == "." || name == "..") continue;
-
-//         string fullPath = folderPath + "/" + name;
-
-//         if (stat(fullPath.c_str(), &entryStat) == 0) {
-//             if (S_ISDIR(entryStat.st_mode)) {
-//                 totalSize += getFolderSize(fullPath); // Recurse
-//             } else {
-//                 totalSize += entryStat.st_size;
-//             }
-//         }
-//     }
-
-//     closedir(dir);
-//     return totalSize;
-// }
 
 off_t getFolderSizeMT(const string &rootPath, int numThreads) {
     queue<string> dirQueue;
@@ -99,6 +81,10 @@ off_t getFolderSizeMT(const string &rootPath, int numThreads) {
 
             struct dirent *entry;
             while ((entry = readdir(dir)) != nullptr) {
+                if (sizeCancelFlag.load()) {
+                    closedir(dir);
+                    return;
+                }
                 string name = entry->d_name;
                 if (name == "." || name == "..") continue;
 
@@ -129,6 +115,8 @@ off_t getFolderSizeMT(const string &rootPath, int numThreads) {
         }
     };
 
+    sizeWorker.detach();
+
     vector<thread> threads;
     for (int i = 0; i < numThreads; i++)
         threads.emplace_back(worker);
@@ -144,8 +132,6 @@ off_t getFolderSizeMT(const string &rootPath, int numThreads) {
 // Function to get file details
 void getFileDetails(const string &path) {
     struct stat statbuf;
-    // auto start,end,duration;
-    long long duration=-1;
 
     // Get file statistics
     if (stat(path.c_str(), &statbuf) != 0) {
@@ -161,11 +147,30 @@ void getFileDetails(const string &path) {
     if (S_ISDIR(statbuf.st_mode)) {
         // Get folder size recursively
         // off_t folderSize = getFolderSize(path);
-        auto start = chrono::steady_clock::now();
-        off_t folderSize = getFolderSizeMT(path,CONFIG_WORKERS);
-        auto end = chrono::steady_clock::now();
-        duration = chrono::duration_cast<chrono::milliseconds>(end - start).count();
-        fileSize = humanReadableSize(folderSize) + " (dir)";
+        if (!sizeInProgress) {
+            sizeCancelFlag = false;
+            sizeInProgress = true;
+
+            if (sizeWorker.joinable())
+                sizeWorker.join();
+
+            sizeWorker = std::thread([path]() {
+                auto start = chrono::steady_clock::now();
+                off_t folderSize = getFolderSizeMT(path,CONFIG_WORKERS);
+                auto end = chrono::steady_clock::now();
+                lastScanDuration.store(chrono::duration_cast<chrono::milliseconds>(end - start).count());
+
+                if (!sizeCancelFlag) {
+                    lastComputedSize.store(folderSize);
+                }
+                sizeInProgress = false;
+            });
+        }
+        if (sizeInProgress) {
+            fileSize = "Calculating...";
+        } else {
+            fileSize = humanReadableSize(lastComputedSize) + " (dir)";
+        }   
     } else {
         fileSize = humanReadableSize(statbuf.st_size);
     }
@@ -212,10 +217,37 @@ void getFileDetails(const string &path) {
     s="Last Modified: " + (string)timeBuffer;
     // cout << "Last Modified: " << timeBuffer << endl;
     cout << truncate(s, colSize-4) << endl;
-    if(duration!=-1){
-        s= "Scan Time: " + to_string(duration) + " ms";
+    if(lastScanDuration.load()!=-1){
+        s= "Scan Time: " + to_string(lastScanDuration.load()) + " ms";
         logMessage(s);
         cout << truncate(s, colSize-4) << endl;
     }
-
+    while(sizeInProgress){
+    }
+    posx(1,1);
+    fileSize = humanReadableSize(lastComputedSize) + " (dir)";
+    s="File Name: " + fileName;
+    // Print the details
+    cout << truncate(s, colSize-4) << endl;
+    s="File Size: " + fileSize;
+    // cout << "File Size: " << fileSize << endl;
+    cout << truncate(s, colSize-4) << endl;
+    s="Ownership: " + userName + "(User)";
+    // cout << "Ownership: " << userName << "(User)" << endl;
+    cout << truncate(s, colSize-4) << endl;
+    s= groupName + " (Group)";
+    // cout<<groupName << " (Group)" << endl;
+    cout << truncate(s, colSize-4) << endl;
+    s="Permissions: " + permissions;
+    // cout << "Permissions: " << permissions << endl;
+    cout << truncate(s, colSize-4) << endl;
+    s="Last Modified: " + (string)timeBuffer;
+    // cout << "Last Modified: " << timeBuffer << endl;
+    cout << truncate(s, colSize-4) << endl;
+    if(lastScanDuration.load()!=-1){
+        s= "Scan Time: " + to_string(lastScanDuration.load()) + " ms";
+        logMessage(s);
+        cout << truncate(s, colSize-4) << endl;
+    }
+    pos();
 }
