@@ -179,8 +179,8 @@ void displayFiles() {
     char *newPath = new char[tempPath.length() + 1]; 
     strcpy(newPath, tempPath.c_str());
 
-    posx(1,1);
-    getFileDetails(newPath);
+    // posx(1,1);
+    // getFileDetails(newPath);
 
     if(!isDirectory(newPath)){
         // posx(1, 45);
@@ -216,6 +216,10 @@ void displayFiles() {
     posx(rows-2, 0);
     printf("\033[1;34mCurrent Path: %s\033[0m\n", currPath);
     openCurrDirectory(currPath);
+
+    posx(1,1);
+    getFileDetails(newPath);
+
     ycurr=colSize;
     pos();
     // logMessage(to_string(ycurr));
@@ -291,7 +295,7 @@ void navigate() {
                     displayFiles();
                 }
                 else{
-                    displayFiles();
+                    // displayFiles();
                 }
                 sizeCancelFlag = true;
                 if (sizeWorker.joinable())
@@ -321,6 +325,11 @@ void navigate() {
                 else{
                     // displayFiles();
                 }
+                sizeCancelFlag = true;
+                if (sizeWorker.joinable())
+                    sizeWorker.join();
+
+                sizeInProgress = false;
             }
 
             else if(ch=='C'){
@@ -360,6 +369,11 @@ void navigate() {
                     displayFiles();
                     pos();
                 }
+                sizeCancelFlag = true;
+                if (sizeWorker.joinable())
+                    sizeWorker.join();
+
+                sizeInProgress = false;
             }
 
             else if(ch == 'D'){
@@ -387,8 +401,13 @@ void navigate() {
                     pos();
                 }
                 else{
-                    displayFiles();
+                    // displayFiles();
                 }
+                sizeCancelFlag = true;
+                if (sizeWorker.joinable())
+                    sizeWorker.join();
+
+                sizeInProgress = false;
             }
 
         }

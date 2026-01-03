@@ -15,7 +15,50 @@ string truncate(const string &str, size_t maxLength) {
     if (str.length() > maxLength) {
         return str.substr(0, maxLength) + "...";
     }
-    return str;
+    // return str;
+    return str + string(maxLength - str.length(), ' ');
+}
+
+void print_details(
+    const string &fileName,
+    const string &fileSize,
+    const string &userName,
+    const string &groupName,
+    const string &permissions,
+    const char *timeBuffer,
+    int colSize,
+    long long scanDuration
+) {
+    posx(1,1);
+    string s;
+
+    s = "File Name: " + fileName;
+    cout << truncate(s, colSize - 4) << endl;
+
+    s = "File Size: " + fileSize;
+    cout << truncate(s, colSize - 4) << endl;
+
+    s = "Ownership: " + userName + "(User)";
+    cout << truncate(s, colSize - 4) << endl;
+
+    s = groupName + " (Group)";
+    cout << truncate(s, colSize - 4) << endl;
+
+    s = "Permissions: " + permissions;
+    cout << truncate(s, colSize - 4) << endl;
+
+    s = "Last Modified: " + string(timeBuffer);
+    cout << truncate(s, colSize - 4) << endl;
+
+    if (scanDuration == -1) {
+        if(sizeInProgress) s = "Scan Time: Calculating";
+        else s="";
+    } else {
+        s = "Scan Time: " + to_string(scanDuration) + " ms";
+    }
+
+    cout << truncate(s, colSize - 4) << endl;
+    pos();
 }
 
 // Function to convert file size to a human-readable format
@@ -115,8 +158,6 @@ off_t getFolderSizeMT(const string &rootPath, int numThreads) {
         }
     };
 
-    sizeWorker.detach();
-
     vector<thread> threads;
     for (int i = 0; i < numThreads; i++)
         threads.emplace_back(worker);
@@ -132,6 +173,8 @@ off_t getFolderSizeMT(const string &rootPath, int numThreads) {
 // Function to get file details
 void getFileDetails(const string &path) {
     struct stat statbuf;
+
+    lastScanDuration.store(-1);
 
     // Get file statistics
     if (stat(path.c_str(), &statbuf) != 0) {
@@ -165,6 +208,8 @@ void getFileDetails(const string &path) {
                 }
                 sizeInProgress = false;
             });
+            sizeWorker.detach();
+
         }
         if (sizeInProgress) {
             fileSize = "Calculating...";
@@ -199,55 +244,8 @@ void getFileDetails(const string &path) {
     struct tm *timeinfo = localtime(&lastModified);
     strftime(timeBuffer, sizeof(timeBuffer), "%Y-%m-%d %H:%M:%S", timeinfo);
 
-    string s="File Name: " + fileName;
-    // Print the details
-    cout << truncate(s, colSize-4) << endl;
-    s="File Size: " + fileSize;
-    // cout << "File Size: " << fileSize << endl;
-    cout << truncate(s, colSize-4) << endl;
-    s="Ownership: " + userName + "(User)";
-    // cout << "Ownership: " << userName << "(User)" << endl;
-    cout << truncate(s, colSize-4) << endl;
-    s= groupName + " (Group)";
-    // cout<<groupName << " (Group)" << endl;
-    cout << truncate(s, colSize-4) << endl;
-    s="Permissions: " + permissions;
-    // cout << "Permissions: " << permissions << endl;
-    cout << truncate(s, colSize-4) << endl;
-    s="Last Modified: " + (string)timeBuffer;
-    // cout << "Last Modified: " << timeBuffer << endl;
-    cout << truncate(s, colSize-4) << endl;
-    if(lastScanDuration.load()!=-1){
-        s= "Scan Time: " + to_string(lastScanDuration.load()) + " ms";
-        logMessage(s);
-        cout << truncate(s, colSize-4) << endl;
-    }
-    while(sizeInProgress){
-    }
-    posx(1,1);
-    fileSize = humanReadableSize(lastComputedSize) + " (dir)";
-    s="File Name: " + fileName;
-    // Print the details
-    cout << truncate(s, colSize-4) << endl;
-    s="File Size: " + fileSize;
-    // cout << "File Size: " << fileSize << endl;
-    cout << truncate(s, colSize-4) << endl;
-    s="Ownership: " + userName + "(User)";
-    // cout << "Ownership: " << userName << "(User)" << endl;
-    cout << truncate(s, colSize-4) << endl;
-    s= groupName + " (Group)";
-    // cout<<groupName << " (Group)" << endl;
-    cout << truncate(s, colSize-4) << endl;
-    s="Permissions: " + permissions;
-    // cout << "Permissions: " << permissions << endl;
-    cout << truncate(s, colSize-4) << endl;
-    s="Last Modified: " + (string)timeBuffer;
-    // cout << "Last Modified: " << timeBuffer << endl;
-    cout << truncate(s, colSize-4) << endl;
-    if(lastScanDuration.load()!=-1){
-        s= "Scan Time: " + to_string(lastScanDuration.load()) + " ms";
-        logMessage(s);
-        cout << truncate(s, colSize-4) << endl;
-    }
-    pos();
+    print_details(fileName,fileSize,userName,groupName,permissions,timeBuffer,colSize,lastScanDuration.load());
+    while(sizeInProgress){}
+    fileSize = humanReadableSize(lastComputedSize);
+    print_details(fileName,fileSize,userName,groupName,permissions,timeBuffer,colSize,lastScanDuration.load());
 }
