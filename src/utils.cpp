@@ -1,6 +1,7 @@
 #include "myheader.h"
 
 #define posx(x, y) fprintf(stdout, "\033[%d;%dH", x, y)  // Move to (x, y)
+#define pos() fprintf(stdout, "\033[%d;%dH", xcurr, ycurr)  // Move cursor
 
 void hideCursor() {
     printf("\033[?25l");
@@ -8,6 +9,22 @@ void hideCursor() {
 
 void showCursor() {
     printf("\033[?25h");
+}
+
+void cleanup() {
+    sizeCancelFlag = true;
+
+    if (sizeWorker.joinable())
+        sizeWorker.join();
+}
+
+void stopFolderScan() {
+    sizeCancelFlag = true;
+
+    if (sizeWorker.joinable())
+        sizeWorker.join();
+    sizeInProgress = false;
+    pos();
 }
 
 void showTempMessage(const string &msg, int wait_ms=1000) {

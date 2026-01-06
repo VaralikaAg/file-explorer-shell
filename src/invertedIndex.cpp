@@ -3,6 +3,41 @@
 InvertedIndex globalIndex;
 vector<int> freeFileIds;
 
+void runIndexingInBackground(const string root) {
+    indexingInProgress = true;
+
+    if (!isValidDirectory(root)) {
+        indexingInProgress = false;
+        fprintf(stderr,
+            "\033[1;31mError:\033[0m indexing_root '%s' is not a valid directory\n",
+            root.c_str()
+        );
+        exit(EXIT_FAILURE);   // exit code != 0
+    }
+
+    logMessage("Starting offline indexing...");
+
+    traverse(root);
+
+    logMessage("Traversal complete. Total paths queued: " +
+               to_string(indexQueue.size()));
+
+    auto t1 = chrono::high_resolution_clock::now();
+
+    globalIndex.indexAllOnce(indexQueue);
+
+    auto t2 = chrono::high_resolution_clock::now();
+
+    logMessage("Indexing finished.");
+    logMessage("Indexing took: " +
+        to_string(
+            chrono::duration_cast<chrono::seconds>(t2 - t1).count()
+        ) + " seconds");
+
+    indexingInProgress = false;
+}
+
+
 bool isRegularFile(const string &path) {
     struct stat st;
     return (stat(path.c_str(), &st) == 0 && S_ISREG(st.st_mode));

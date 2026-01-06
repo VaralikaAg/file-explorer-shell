@@ -29,7 +29,7 @@ using namespace std;
 
 
 struct NavState {
-    std::string path;        // The directory path
+    string path;        // The directory path
     unsigned int xcurr;      // Cursor row within the display window
     unsigned int up_screen;  // Starting index of files being displayed
 };
@@ -98,11 +98,24 @@ extern string CONFIG_INDEXING_ROOT;
 extern queue<string> indexQueue;
 extern InvertedIndex globalIndex;
 extern vector<int> freeFileIds;
-extern std::atomic<bool> sizeCancelFlag;
-extern std::atomic<bool> sizeInProgress;
-extern std::atomic<off_t> lastComputedSize;
-extern std::thread sizeWorker;
-extern std::mutex sizeMutex;
+extern atomic<bool> sizeCancelFlag;
+extern atomic<bool> sizeInProgress;
+extern atomic<off_t> lastComputedSize;
+extern thread sizeWorker;
+extern mutex sizeMutex;
+extern condition_variable sizeCV;
+extern mutex sizeCVMutex;
+extern mutex uiMutex;
+
+extern string left_fileName;
+extern string left_userName;
+extern string left_groupName;
+extern string left_permissions;
+extern string left_fileSize;
+extern int left_colSize;
+extern char left_timeBuffer[80];
+extern atomic<bool> indexingInProgress;
+extern thread indexingThread;
 
 
 // Global Method Declarations
@@ -135,7 +148,7 @@ bool isReadableFile(const string &filepath);
 bool isBinaryFile(const string &filepath);
 void displayTextFile(const string &filepath);
 void update_position(string fileName);
-void logMessage(const std::string& message);
+void logMessage(const string& message);
 string get_input();
 void get_terminal_size();
 void getFileDetails(const string &path);
@@ -148,3 +161,5 @@ bool isValidDirectory(const string &path);
 void hideCursor();
 void showCursor();
 void showTempMessage(const string &msg, int wait_ms);
+void stopFolderScan();
+void runIndexingInBackground(const string root);

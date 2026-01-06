@@ -1,4 +1,4 @@
 performance:
   workers: 5
   indexing: true
-  indexing_root: /home/varalika/Desktop/Varalika
+  indexing_root: /home

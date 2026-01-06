@@ -167,6 +167,10 @@ void displayFiles() {
     setCursorRed();
 
     openCurrDirectory(currPath);
+    if(fileList.empty()) {
+        // Do nothing, directory is empty
+        return;
+    }
     // logMessage(currPath);
     for (unsigned int i = up_screen, line=1; i < up_screen + rowSize && i < fileList.size(); i++, line++) {
         posx(line, colSize+2);
@@ -284,6 +288,7 @@ void navigate() {
 
             if (ch == 'A') {  // Up arrow key
                 // printf("Up arrow key used\n");
+                stopFolderScan();
                 if(xcurr>1){
                     xcurr--;
                     displayFiles();
@@ -297,16 +302,11 @@ void navigate() {
                 else{
                     // displayFiles();
                 }
-                sizeCancelFlag = true;
-                if (sizeWorker.joinable())
-                    sizeWorker.join();
-
-                sizeInProgress = false;
-
             }
 
             else if(ch=='B'){
                 // printf("Down arrow key used\n");
+                stopFolderScan();
                 openCurrDirectory(currPath);
                 if(xcurr<rowSize && xcurr<fileList.size()){
                     xcurr++;
@@ -325,15 +325,11 @@ void navigate() {
                 else{
                     // displayFiles();
                 }
-                sizeCancelFlag = true;
-                if (sizeWorker.joinable())
-                    sizeWorker.join();
-
-                sizeInProgress = false;
             }
 
             else if(ch=='C'){
                 // printf("Right arrow used\n");
+                stopFolderScan();
                 selectedFiles.clear();
                 string selectedFile = fileList[xcurr + up_screen - 1];
                 string tempPath = string(currPath);
@@ -369,15 +365,11 @@ void navigate() {
                     displayFiles();
                     pos();
                 }
-                sizeCancelFlag = true;
-                if (sizeWorker.joinable())
-                    sizeWorker.join();
-
-                sizeInProgress = false;
             }
 
             else if(ch == 'D'){
                 // printf("Left arrow key used\n");
+                stopFolderScan();
                 selectedFiles.clear();
                 if(!backStack.empty()){
                     NavState prevState = backStack.top();
@@ -403,11 +395,6 @@ void navigate() {
                 else{
                     // displayFiles();
                 }
-                sizeCancelFlag = true;
-                if (sizeWorker.joinable())
-                    sizeWorker.join();
-
-                sizeInProgress = false;
             }
 
         }
@@ -533,11 +520,6 @@ void handleSigint(int signum) {
     fputs("\033[2J", stdout) ;
     fprintf(stdout, "\033[%d;%dH", 0, 0);
 
-    // Reset the cursor color before exiting.
-    // resetCursorColor();
-    
-    // Exit with the signal number.
-    // cout << "Exited gracefully." << endl;
     exit(signum);
 }
 

@@ -8,6 +8,8 @@ int resized, CONFIG_WORKERS;
 bool CONFIG_INDEXING;
 string CONFIG_INDEXING_ROOT;
 queue<string> indexQueue;
+atomic<bool> indexingInProgress{false};
+thread indexingThread;
 
 
 char *root;
@@ -36,37 +38,14 @@ int main(int argc, char *argv[]){
     // setvbuf(stdout, nullptr, _IOFBF, 1 << 20); // 1MB buffer
 
     /*********** INDEXING *********/
-    cout << "Process ID: " << getpid() << endl;
+    string s = "Process ID: " + to_string(getpid());
+    logMessage(s);
+    // cout << "Process ID: " << getpid() << endl;
     string main_root = CONFIG_INDEXING_ROOT;
 
     if (CONFIG_INDEXING) {
-
-        if (!isValidDirectory(main_root)) {
-            fprintf(stderr,
-                "\033[1;31mError:\033[0m indexing_root '%s' is not a valid directory\n",
-                main_root.c_str()
-            );
-            exit(EXIT_FAILURE);   // exit code != 0
-        }
-
-        logMessage("Starting offline indexing...");
-        traverse(main_root);
-
-        logMessage("Traversal complete. Total paths queued: " +
-                to_string(indexQueue.size()));
-
-        logMessage("Indexing started...");
-        auto t1 = chrono::high_resolution_clock::now();
-
-        globalIndex.indexAllOnce(indexQueue);
-
-        auto t2 = chrono::high_resolution_clock::now();
-        logMessage("Indexing finished.");
-        logMessage("Indexing took: " +
-            to_string(
-                chrono::duration_cast<chrono::seconds>(t2 - t1).count()
-            ) + " seconds");
-
+        indexingThread = std::thread(runIndexingInBackground, main_root);
+        indexingThread.detach();
     } else {
         logMessage("Indexing skipped (disabled in config)");
     }
