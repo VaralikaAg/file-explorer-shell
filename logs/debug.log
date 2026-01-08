@@ -1,36 +1,34 @@
 Loaded workers = 5
 Indexing ENABLED
 Indexing root set to: /home
-Process ID: 167661
+Process ID: 170349
+/home
+home
 Starting offline indexing...
-Traversal complete. Total paths queued: 5017
+/home/varalika
+varalika
+/home/varalika/Desktop
+Desktop
+/home/varalika/Desktop/Varalika
+Varalika
+/home/varalika/Desktop/Varalika/file-explorer-shell
+file-explorer-shell
+Traversal complete. Total paths queued: 5041
 Indexing finished.
-Indexing took: 27 seconds
+Indexing took: 29 seconds
 Loaded workers = 5
 Indexing ENABLED
 Indexing root set to: /home
-Process ID: 167847
+Process ID: 170643
+/home
+home
 Starting offline indexing...
-Traversal complete. Total paths queued: 5019
-Loaded workers = 5
-Indexing ENABLED
-Indexing root set to: /home
-Process ID: 167985
-Starting offline indexing...
-Traversal complete. Total paths queued: 5020
-Indexing finished.
-Indexing took: 28 seconds
-Loaded workers = 5
-Indexing ENABLED
-Indexing root set to: /home
-Process ID: 168096
-Starting offline indexing...
-Traversal complete. Total paths queued: 5021
-Indexing finished.
-Indexing took: 27 seconds
-Loaded workers = 5
-Indexing ENABLED
-Indexing root set to: /home
-Process ID: 169185
-Starting offline indexing...
-Traversal complete. Total paths queued: 5030
+/home/varalika
+varalika
+/home/varalika/Desktop
+Desktop
+/home/varalika/Desktop/Varalika
+Varalika
+/home/varalika/Desktop/Varalika/file-explorer-shell
+file-explorer-shell
+Traversal complete. Total paths queued: 5046
