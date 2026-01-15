@@ -280,97 +280,165 @@ void navigate() {
             pos();
         }
 
-        ch = cin.get();
+        if(uiRefresh){
+            print_details();
+            uiRefresh = false;
+        }
 
-        if (ch == 27) {  // Escape sequence
+        if (inputAvailable()) {
+
             ch = cin.get();
-            ch = cin.get();
 
-            if (ch == 'A') {  // Up arrow key
-                // printf("Up arrow key used\n");
-                stopFolderScan();
-                if(xcurr>1){
-                    xcurr--;
-                    displayFiles();
-                    pos();
-                }
-                else if (xcurr==1 && up_screen > 0) {
-                    up_screen--;
-                    down_screen++;
-                    displayFiles();
-                }
-                else{
-                    // displayFiles();
-                }
-            }
+            if (ch == 27) {  // Escape sequence
+                ch = cin.get();
+                ch = cin.get();
 
-            else if(ch=='B'){
-                // printf("Down arrow key used\n");
-                stopFolderScan();
-                openCurrDirectory(currPath);
-                if(xcurr<rowSize && xcurr<fileList.size()){
-                    xcurr++;
-                    displayFiles();
-                    pos();
-                }
-                else if(xcurr==rowSize && down_screen>0){
-                    up_screen++;
-                    down_screen--;
-                    // displayFiles();
-                    hideCursor();
-                    displayFiles();
-                    pos();
-                    showCursor();
-                }
-                else{
-                    // displayFiles();
-                }
-            }
-
-            else if(ch=='C'){
-                // printf("Right arrow used\n");
-                stopFolderScan();
-                selectedFiles.clear();
-                string selectedFile = fileList[xcurr + up_screen - 1];
-                string tempPath = string(currPath);
-                if (tempPath.back() != '/') tempPath += "/";
-                tempPath+= selectedFile;
-                char *newPath = new char[tempPath.length() + 1]; 
-                strcpy(newPath, tempPath.c_str()); 
-
-                // if (isDirectory(tempPath.c_str())) {
-                if (isDirectory(newPath)) {
-                    openCurrDirectory(newPath);
-                    // if(fileList.size()!=0){
-                        NavState currentState;
-                        currentState.path = string(currPath);
-                        currentState.xcurr = xcurr;
-                        currentState.up_screen = up_screen;
-                        backStack.push(currentState);
-
-                        delete[] currPath;
-                        currPath = new char[strlen(newPath) + 1];
-                        strcpy(currPath, newPath);
-                        openDirectory(currPath, up_screen, down_screen); 
-                        xcurr = 1;  
+                if (ch == 'A') {  // Up arrow key
+                    // printf("Up arrow key used\n");
+                    stopFolderScan();
+                    if(xcurr>1){
+                        xcurr--;
                         displayFiles();
                         pos();
-                    // }
-                    // else{
-                    //     displayFiles();
-                    // }
+                    }
+                    else if (xcurr==1 && up_screen > 0) {
+                        up_screen--;
+                        down_screen++;
+                        displayFiles();
+                    }
+                    else{
+                        // displayFiles();
+                    }
                 }
-                else{
-                    // logMessage((string)newPath);
-                    displayFiles();
-                    pos();
-                }
-            }
 
-            else if(ch == 'D'){
-                // printf("Left arrow key used\n");
-                stopFolderScan();
+                else if(ch=='B'){
+                    // printf("Down arrow key used\n");
+                    stopFolderScan();
+                    openCurrDirectory(currPath);
+                    if(xcurr<rowSize && xcurr<fileList.size()){
+                        xcurr++;
+                        displayFiles();
+                        pos();
+                    }
+                    else if(xcurr==rowSize && down_screen>0){
+                        up_screen++;
+                        down_screen--;
+                        // displayFiles();
+                        hideCursor();
+                        displayFiles();
+                        pos();
+                        showCursor();
+                    }
+                    else{
+                        // displayFiles();
+                    }
+                }
+
+                else if(ch=='C'){
+                    // printf("Right arrow used\n");
+                    stopFolderScan();
+                    selectedFiles.clear();
+                    string selectedFile = fileList[xcurr + up_screen - 1];
+                    string tempPath = string(currPath);
+                    if (tempPath.back() != '/') tempPath += "/";
+                    tempPath+= selectedFile;
+                    char *newPath = new char[tempPath.length() + 1]; 
+                    strcpy(newPath, tempPath.c_str()); 
+
+                    // if (isDirectory(tempPath.c_str())) {
+                    if (isDirectory(newPath)) {
+                        openCurrDirectory(newPath);
+                        // if(fileList.size()!=0){
+                            NavState currentState;
+                            currentState.path = string(currPath);
+                            currentState.xcurr = xcurr;
+                            currentState.up_screen = up_screen;
+                            backStack.push(currentState);
+
+                            delete[] currPath;
+                            currPath = new char[strlen(newPath) + 1];
+                            strcpy(currPath, newPath);
+                            openDirectory(currPath, up_screen, down_screen); 
+                            xcurr = 1;  
+                            displayFiles();
+                            pos();
+                        // }
+                        // else{
+                        //     displayFiles();
+                        // }
+                    }
+                    else{
+                        // logMessage((string)newPath);
+                        displayFiles();
+                        pos();
+                    }
+                }
+
+                else if(ch == 'D'){
+                    // printf("Left arrow key used\n");
+                    stopFolderScan();
+                    selectedFiles.clear();
+                    if(!backStack.empty()){
+                        NavState prevState = backStack.top();
+                        backStack.pop();
+
+                        delete[] currPath;
+                        currPath = new char[prevState.path.length() + 1];
+                        strcpy(currPath, prevState.path.c_str()); 
+
+                        openCurrDirectory(currPath);
+                        xcurr = prevState.xcurr;
+                        up_screen = prevState.up_screen;
+                        down_screen = fileList.size() - up_screen - rowSize;
+
+                        // logMessage(prevState.path);
+                        // logMessage(to_string(prevState.xcurr));
+                        // logMessage(to_string(prevState.up_screen));
+                        normalizeCursor();
+
+                        displayFiles();
+                        pos();
+                    }
+                    else{
+                        // displayFiles();
+                    }
+                }
+
+            }
+            else if (ch=='c'){
+                // string selectedFile = fileList[xcurr + up_screen - 1];
+                copy();
+                displayFiles();
+                // copy(selectedFile);
+            }
+            else if (ch=='p'){
+                paste();
+                // openDirectory(currPath, up_screen, down_screen);
+                // displayFiles();
+                // pos();
+            }
+            else if (ch == 'd') {
+                deleteSelectedItems();
+            }
+            else if (ch == ':') {
+                displayFiles();
+                commandMode();
+                // openCurrDirectory(currPath);
+                // displayFiles();
+                // pos();
+            }
+            else if (ch == ' ') {
+                toggleSelect();
+                // displayFiles();
+                // pos();
+            }
+            else if (ch == 'u') {
                 selectedFiles.clear();
+                displayFiles();
+                pos();
+            }
+            else if (ch == 127 || ch == 8){
+                // printf("Backspace key used\n");
                 if(!backStack.empty()){
                     NavState prevState = backStack.top();
                     backStack.pop();
@@ -379,131 +447,68 @@ void navigate() {
                     currPath = new char[prevState.path.length() + 1];
                     strcpy(currPath, prevState.path.c_str()); 
 
+                    // openDirectory(currPath, up_screen, down_screen);
                     openCurrDirectory(currPath);
                     xcurr = prevState.xcurr;
                     up_screen = prevState.up_screen;
                     down_screen = fileList.size() - up_screen - rowSize;
-
-                    // logMessage(prevState.path);
-                    // logMessage(to_string(prevState.xcurr));
-                    // logMessage(to_string(prevState.up_screen));
-                    normalizeCursor();
-
-                    displayFiles();
-                    pos();
-                }
-                else{
-                    // displayFiles();
-                }
-            }
-
-        }
-        else if (ch=='c'){
-            // string selectedFile = fileList[xcurr + up_screen - 1];
-            copy();
-            displayFiles();
-            // copy(selectedFile);
-        }
-        else if (ch=='p'){
-            paste();
-            // openDirectory(currPath, up_screen, down_screen);
-            // displayFiles();
-            // pos();
-        }
-        else if (ch == 'd') {
-            deleteSelectedItems();
-        }
-        else if (ch == ':') {
-            displayFiles();
-            commandMode();
-            // openCurrDirectory(currPath);
-            // displayFiles();
-            // pos();
-        }
-        else if (ch == ' ') {
-            toggleSelect();
-            // displayFiles();
-            // pos();
-        }
-        else if (ch == 'u') {
-            selectedFiles.clear();
-            displayFiles();
-            pos();
-        }
-
-
-
-        else if (ch == 127 || ch == 8){
-            // printf("Backspace key used\n");
-            if(!backStack.empty()){
-                NavState prevState = backStack.top();
-                backStack.pop();
-
-                delete[] currPath;
-                currPath = new char[prevState.path.length() + 1];
-                strcpy(currPath, prevState.path.c_str()); 
-
-                // openDirectory(currPath, up_screen, down_screen);
-                openCurrDirectory(currPath);
-                xcurr = prevState.xcurr;
-                up_screen = prevState.up_screen;
-                down_screen = fileList.size() - up_screen - rowSize;
-                displayFiles();
-                pos();
-            }
-        }
-        else if (ch == '\n' || ch == '\r'){
-            // printf("Enter used\n");
-            string selectedFile = fileList[xcurr + up_screen - 1];
-            string tempPath = string(currPath) + '/' + selectedFile;
-            char *newPath = new char[tempPath.length() + 1]; 
-            strcpy(newPath, tempPath.c_str()); 
-
-            struct stat sb;
-			stat(newPath, &sb);
-
-            if (isDirectory(newPath)) {
-                openCurrDirectory(newPath);
-                if(fileList.size()!=0){
-                    NavState currentState;
-                    currentState.path = string(currPath);
-                    currentState.xcurr = xcurr;
-                    currentState.up_screen = up_screen;
-                    backStack.push(currentState);
-
-                    strcpy(currPath, newPath);
-                    openDirectory(currPath, up_screen, down_screen); 
-                    xcurr = 1;  
                     displayFiles();
                     pos();
                 }
             }
-            else if (S_ISREG(sb.st_mode))  // Check if it's a regular file
-            {
-                // Suppress error messages by redirecting stderr to /dev/null
-                int nullFile = open("/dev/null", O_WRONLY);
-                dup2(nullFile, STDERR_FILENO);
-                close(nullFile);
+            else if (ch == '\n' || ch == '\r'){
+                // printf("Enter used\n");
+                string selectedFile = fileList[xcurr + up_screen - 1];
+                string tempPath = string(currPath) + '/' + selectedFile;
+                char *newPath = new char[tempPath.length() + 1]; 
+                strcpy(newPath, tempPath.c_str()); 
 
-                // Create a new process
-                pid_t pid = fork();
+                struct stat sb;
+                stat(newPath, &sb);
 
-                if (pid == 0)  // If this is the child process
+                if (isDirectory(newPath)) {
+                    openCurrDirectory(newPath);
+                    if(fileList.size()!=0){
+                        NavState currentState;
+                        currentState.path = string(currPath);
+                        currentState.xcurr = xcurr;
+                        currentState.up_screen = up_screen;
+                        backStack.push(currentState);
+
+                        strcpy(currPath, newPath);
+                        openDirectory(currPath, up_screen, down_screen); 
+                        xcurr = 1;  
+                        displayFiles();
+                        pos();
+                    }
+                }
+                else if (S_ISREG(sb.st_mode))  // Check if it's a regular file
                 {
-                    // Open the file using the system's default application
-                    execlp("xdg-open", "xdg-open", newPath, NULL);
+                    // Suppress error messages by redirecting stderr to /dev/null
+                    int nullFile = open("/dev/null", O_WRONLY);
+                    dup2(nullFile, STDERR_FILENO);
+                    close(nullFile);
 
-                    // If execlp fails, exit the child process
-                    exit(EXIT_FAILURE);
+                    // Create a new process
+                    pid_t pid = fork();
+
+                    if (pid == 0)  // If this is the child process
+                    {
+                        // Open the file using the system's default application
+                        execlp("xdg-open", "xdg-open", newPath, NULL);
+
+                        // If execlp fails, exit the child process
+                        exit(EXIT_FAILURE);
+                    }
+                }
+
+                else
+                {
+                    printf("Unknown File !!! :::::");
                 }
             }
-
-            else
-            {
-                printf("Unknown File !!! :::::");
-            }
+            else displayFiles();
         }
-        else displayFiles();
     }
 
     // tcsetattr(fileno(stdin), TCSANOW, &initialrsettings);

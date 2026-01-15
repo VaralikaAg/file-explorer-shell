@@ -15,7 +15,8 @@ SRC = src/dir_functions.cpp \
       src/search.cpp \
       src/file_details.cpp \
       src/utils.cpp \
-      src/invertedIndex.cpp
+      src/invertedIndex.cpp \
+      src/ui.cpp
 
 OBJ = $(SRC:src/%.cpp=$(OBJDIR)/%.o)
 

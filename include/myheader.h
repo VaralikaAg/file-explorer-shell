@@ -115,6 +115,7 @@ extern string left_fileSize;
 extern int left_colSize;
 extern char left_timeBuffer[80];
 extern atomic<bool> indexingInProgress;
+extern atomic<bool> uiRefresh;
 extern thread indexingThread;
 
 
@@ -163,3 +164,6 @@ void showCursor();
 void showTempMessage(const string &msg, int wait_ms);
 void stopFolderScan();
 void runIndexingInBackground(const string root);
+void renderUI();
+bool inputAvailable();
+void print_details();

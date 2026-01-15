@@ -51,111 +51,95 @@ int main(int argc, char *argv[]){
     }
 
     if(argc==1){
-        string s = ".";
-		char *path = new char[2];
-		strcpy(path, s.c_str());
-		root = path;
-        // root=".";
         char *currentDir = getcwd(NULL, 0);
         root=currentDir;
-        string absPath=root;
-
-        vector<string> pathParts;
-        stringstream ss(absPath);
-        string segment;
-
-        while (getline(ss, segment, '/')) {
-            if (!segment.empty()) {
-                pathParts.push_back(segment);
-            }
-        }
-
-        stack<NavState> tempStack, dummyStack;
-
-        string newPath = "";
-        // bool found = false;
-
-        // for (const auto& dir : pathParts) {
-        //     // Simulate getting the contents of the directory
-        //     newPath=newPath + "/" + dir;
-        //     // Create a new navigation state and push it to the stack
-        //     NavState currState;
-        //     currState.path = newPath;
-        //     currState.xcurr = 1; // Simulating the cursor or position
-        //     currState.up_screen = 0; // You can modify this logic as per your need
-
-        //     tempStack.push(currState);
-                
-        // }
-
-        for (size_t ind=0; ind<pathParts.size(); ind++) {
-            const auto dir = pathParts[ind];
-            newPath = newPath + "/" + dir;
-            logMessage(newPath);
-            logMessage(dir);
-
-            // Get the file list of the current directory
-            vector<string> currFileList;
-            DIR *d = opendir(newPath.c_str());
-            if (d) {
-                struct dirent *entry;
-                while ((entry = readdir(d)) != nullptr) {
-                    string name = entry->d_name;
-                    if (name == "." || name == "..") continue;
-                    currFileList.push_back(name);
-                }
-                closedir(d);
-                sort(currFileList.begin(), currFileList.end());
-            }
-
-            // Find the index of 'dir' in the parent's file list
-            int dirIndex = 0;
-            if(ind<pathParts.size()-1){
-                for (size_t i = 0; i < currFileList.size(); i++) {
-                    if (currFileList[i] == pathParts[ind+1]) {
-                        dirIndex = i;
-                        break;
-                    }
-                }
-            }
-
-            // Compute xcurr and up_screen
-            if (dirIndex != -1) {
-                // Calculate cursor & scrolling
-                if ((unsigned int)dirIndex < rowSize) {
-                    up_screen = 0;
-                    xcurr = dirIndex + 1;
-                } else {
-                    up_screen = dirIndex - rowSize + 1;
-                    xcurr = rowSize;
-                }
-            }
-
-            // Push NavState
-            NavState currState;
-            currState.path = newPath;
-            currState.xcurr = xcurr;
-            currState.up_screen = up_screen;
-
-            tempStack.push(currState);
-        }
-
-        
-
-        while (!backStack.empty()) backStack.pop();
-        while (!tempStack.empty()) {
-            dummyStack.push(tempStack.top());
-            tempStack.pop();
-        }
-        while (!dummyStack.empty()) {
-            backStack.push(dummyStack.top());
-            dummyStack.pop();
-        }
-        backStack.pop();
-
-        printf("Opening directory: %s\n", root);
-		openDirectory(root, up_screen, down_screen);
     }
+    else{
+		root = argv[1];
+    }
+    string absPath=root;
+
+    vector<string> pathParts;
+    stringstream ss(absPath);
+    string segment;
+
+    while (getline(ss, segment, '/')) {
+        if (!segment.empty()) {
+            pathParts.push_back(segment);
+        }
+    }
+
+    stack<NavState> tempStack, dummyStack;
+
+    string newPath = "";
+
+    for (size_t ind=0; ind<pathParts.size(); ind++) {
+        const auto dir = pathParts[ind];
+        newPath = newPath + "/" + dir;
+        logMessage(newPath);
+        logMessage(dir);
+
+        // Get the file list of the current directory
+        vector<string> currFileList;
+        DIR *d = opendir(newPath.c_str());
+        if (d) {
+            struct dirent *entry;
+            while ((entry = readdir(d)) != nullptr) {
+                string name = entry->d_name;
+                if (name == "." || name == "..") continue;
+                currFileList.push_back(name);
+            }
+            closedir(d);
+            sort(currFileList.begin(), currFileList.end());
+        }
+
+        // Find the index of 'dir' in the parent's file list
+        int dirIndex = 0;
+        if(ind<pathParts.size()-1){
+            for (size_t i = 0; i < currFileList.size(); i++) {
+                if (currFileList[i] == pathParts[ind+1]) {
+                    dirIndex = i;
+                    break;
+                }
+            }
+        }
+
+        // Compute xcurr and up_screen
+        if (dirIndex != -1) {
+            // Calculate cursor & scrolling
+            if ((unsigned int)dirIndex < rowSize) {
+                up_screen = 0;
+                xcurr = dirIndex + 1;
+            } else {
+                up_screen = dirIndex - rowSize + 1;
+                xcurr = rowSize;
+            }
+        }
+
+        // Push NavState
+        NavState currState;
+        currState.path = newPath;
+        currState.xcurr = xcurr;
+        currState.up_screen = up_screen;
+
+        tempStack.push(currState);
+    }
+
+    
+
+    while (!backStack.empty()) backStack.pop();
+    while (!tempStack.empty()) {
+        dummyStack.push(tempStack.top());
+        tempStack.pop();
+    }
+    while (!dummyStack.empty()) {
+        backStack.push(dummyStack.top());
+        dummyStack.pop();
+    }
+    backStack.pop();
+
+    printf("Opening directory: %s\n", root);
+    openDirectory(root, up_screen, down_screen);
 
     navigate();
 

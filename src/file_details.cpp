@@ -1,10 +1,11 @@
 #include "myheader.h"
 
-#define pos() fprintf(stdout, "\033[%d;%dH", xcurr, ycurr)  // Move cursor
-#define posx(x, y) fprintf(stdout, "\033[%d;%dH", x, y)  // Move to (x, y)
+#define pos() cout << "\033[" << xcurr << ";" << ycurr << "H" << flush
+#define posx(x, y) cout << "\033[" << x << ";" << y << "H" << flush
 
 atomic<bool> sizeCancelFlag{false};
 atomic<bool> sizeInProgress{false};
+atomic<bool> uiRefresh{false};
 atomic<off_t> lastComputedSize{0};
 atomic<long long> lastScanDuration{-1};
 
@@ -31,8 +32,10 @@ void print_details() {
 
     cout << truncate("File Name: " + left_fileName, left_colSize - 4) << endl;
 
-    if (sizeInProgress)
+    if (sizeInProgress){
+        logMessage("in print details.. size");
         cout << truncate("File Size: Calculating", left_colSize - 4) << endl;
+    }
     else
         cout << truncate("File Size: " +
             humanReadableSize(lastComputedSize),
@@ -77,6 +80,7 @@ void startFolderSizeWorker(const string &path) {
 
     sizeCancelFlag = false;
     sizeInProgress = true;
+    uiRefresh = false;
     lastScanDuration = -1;
 
     sizeWorker = thread([path]() {
@@ -89,10 +93,12 @@ void startFolderSizeWorker(const string &path) {
             lastScanDuration =
                 chrono::duration_cast<chrono::milliseconds>(end - start).count();
             sizeInProgress = false;
+            uiRefresh = true;
         }
 
-        print_details();
+        // print_details();
     });
+    sizeWorker.detach();
 }
 
 off_t getFolderSizeMT(const string &rootPath, int numThreads) {
