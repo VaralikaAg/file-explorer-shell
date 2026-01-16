@@ -421,7 +421,7 @@ void navigate() {
                 deleteSelectedItems();
             }
             else if (ch == ':') {
-                displayFiles();
+                renderUI();
                 commandMode();
                 // openCurrDirectory(currPath);
                 // displayFiles();

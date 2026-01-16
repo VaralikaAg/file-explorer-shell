@@ -33,13 +33,10 @@ void print_details() {
     cout << truncate("File Name: " + left_fileName, left_colSize - 4) << endl;
 
     if (sizeInProgress){
-        logMessage("in print details.. size");
         cout << truncate("File Size: Calculating", left_colSize - 4) << endl;
     }
     else
-        cout << truncate("File Size: " +
-            humanReadableSize(lastComputedSize),
-            left_colSize - 4) << endl;
+        cout << truncate("File Size: " + humanReadableSize(lastComputedSize), left_colSize - 4) << endl;
 
     cout << truncate("Ownership: " + left_userName + " (User)", left_colSize - 4) << endl;
     cout << truncate(left_groupName + " (Group)", left_colSize - 4) << endl;
@@ -47,8 +44,7 @@ void print_details() {
     cout << truncate("Last Modified: " + string(left_timeBuffer), left_colSize - 4) << endl;
 
     if (lastScanDuration >= 0)
-        cout << truncate("Scan Time: " + to_string(lastScanDuration) + " ms",
-                         left_colSize - 4) << endl;
+        cout << truncate("Scan Time: " + to_string(lastScanDuration) + " ms",left_colSize - 4) << endl;
     else
         cout << truncate("", left_colSize - 4) << endl;
 
