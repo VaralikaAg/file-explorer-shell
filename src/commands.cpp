@@ -232,7 +232,9 @@ void deleteSelectedItems() {
 
         selectedFiles.clear();
         invalidateDirCache(currPath);
-
+        xcurr=1;
+        up_screen=0;
+        down_screen = fileList.size() - up_screen - rowSize;
         openDirectory(currPath, up_screen, down_screen);
         displayFiles();
         pos();

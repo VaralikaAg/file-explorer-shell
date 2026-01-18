@@ -30,10 +30,13 @@ void print_details() {
 
     posx(1,1);
 
+    std::string s = "";
+
     cout << truncate("File Name: " + left_fileName, left_colSize - 4) << endl;
 
     if (sizeInProgress){
-        cout << truncate("File Size: Calculating", left_colSize - 4) << endl;
+        s = "File Size: Calculating";
+        cout << truncate(s, left_colSize - 4) << endl;
     }
     else
         cout << truncate("File Size: " + humanReadableSize(lastComputedSize), left_colSize - 4) << endl;
@@ -45,9 +48,10 @@ void print_details() {
 
     if (lastScanDuration >= 0)
         cout << truncate("Scan Time: " + to_string(lastScanDuration) + " ms",left_colSize - 4) << endl;
-    else
-        cout << truncate("", left_colSize - 4) << endl;
-
+    else{
+        s = "Scan Time: Calculating";
+        cout << truncate(s, left_colSize - 4) << endl;
+    }
     pos();
 }
 
