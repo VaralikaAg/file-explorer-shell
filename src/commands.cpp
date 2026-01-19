@@ -364,58 +364,6 @@ void createDirectory(string dirName) {
     }
 }
 
-// void showHelp() {
-//     clearScreen;  // full clear
-
-//     setCursorRed();
-//     posx(1, 5);
-//     printf("\033[1;33mCOMMAND MODE HELP\033[0m");
-
-//     posx(3, 5);
-//     printf("\033[1;36mrename <new_name>\033[0m");
-//     printf("        Rename selected file or directory");
-
-//     posx(4, 5);
-//     printf("\033[1;36mcreate_file <name>\033[0m");
-//     printf("       Create a new file");
-
-//     posx(5, 5);
-//     printf("\033[1;36mcreate_dir <name>\033[0m");
-//     printf("        Create a new directory");
-
-//     posx(6, 5);
-//     printf("\033[1;36mcd <absolute_path>\033[0m");
-//     printf("       Change directory");
-
-//     posx(7, 5);
-//     printf("\033[1;36msearch <name>\033[0m");
-//     printf("             Search file & directory");
-
-//     posx(8, 5);
-//     printf("\033[1;36msearch --file <name>\033[0m");
-//     printf("      Search only files");
-
-//     posx(9, 5);
-//     printf("\033[1;36msearch --dir <name>\033[0m");
-//     printf("      Search only directories");
-
-//     posx(10, 5);
-//     printf("\033[1;36mq\033[0m");
-//     printf("                         Exit command mode");
-
-//     posx(rows - 2, 5);
-//     printf("\033[1;32mPress any key to return to file explorer...\033[0m");
-
-//     posx(rows - 1, 0);
-//     fflush(stdout);
-
-//     getchar();
-
-//     // Restore file explorer
-//     displayFiles();
-//     pos();
-// }
-
 void showHelp() {
     clearScreen;
 
@@ -442,11 +390,11 @@ void showHelp() {
 
     posx(r++, 5);
     printf("\033[1;36msearch <name>\033[0m");
-    printf("             Search files & directories");
+    printf("            Search files & directories");
 
     posx(r++, 5);
     printf("\033[1;36msearch --file <name>\033[0m");
-    printf("      Search only files");
+    printf("     Search only files");
 
     posx(r++, 5);
     printf("\033[1;36msearch --dir <name>\033[0m");
@@ -454,19 +402,19 @@ void showHelp() {
 
     posx(r++, 5);
     printf("\033[1;36mfind <keywords>\033[0m");
-    printf("               Find paths using indexed search");
+    printf("          Find paths using indexed search");
 
     posx(r++, 5);
     printf("\033[1;36mfind --dir <keywords>\033[0m");
-    printf("        Find directories under current path");
+    printf("    Find directories under current path");
 
     posx(r++, 5);
     printf("\033[1;36mhelp | --help\033[0m");
-    printf("              Show this help screen");
+    printf("            Show this help screen");
 
     posx(r++, 5);
     printf("\033[1;36mq\033[0m");
-    printf("                         Exit command mode");
+    printf("                        Exit command mode");
 
     posx(rows - 2, 5);
     printf("\033[1;32mPress any key to return...\033[0m");
