@@ -150,6 +150,9 @@ void commandMode()
     else if(command == "q"){
         displayFiles();
     }
+    else if(command == "exit"){
+        cleanupAndExit();
+    }
     else {
         showTempMessage(
             "Invalid command. Type :help to see available commands",
@@ -530,4 +533,14 @@ void handleSigint(int signum) {
 
 void handleResize(int sig) {
     resized=1;
+}
+
+void cleanupAndExit() {
+    tcsetattr(STDIN_FILENO, TCSANOW, &initialrsettings);
+    fprintf(stdout, "\033]12;white\007");
+    printf("\033[0m");
+    printf("\033[2J");
+    printf("\033[1;1H");
+    fflush(stdout);
+    exit(0);
 }

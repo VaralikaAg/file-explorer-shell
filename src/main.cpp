@@ -27,7 +27,8 @@ int main(int argc, char *argv[]){
 
     loadConfig();
 
-    signal(SIGINT, handleSigint);
+    // signal(SIGINT, handleSigint);
+    signal(SIGINT, SIG_IGN);
     signal(SIGWINCH, handleResize);
     get_terminal_size();
     rowSize=rows-10;

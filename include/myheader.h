@@ -167,3 +167,4 @@ void runIndexingInBackground(const string root);
 void renderUI();
 bool inputAvailable();
 void print_details();
+void cleanupAndExit();
