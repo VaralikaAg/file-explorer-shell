@@ -77,8 +77,6 @@ int main(int argc, char *argv[]){
     for (size_t ind=0; ind<pathParts.size(); ind++) {
         const auto dir = pathParts[ind];
         newPath = newPath + "/" + dir;
-        logMessage(newPath);
-        logMessage(dir);
 
         // Get the file list of the current directory
         vector<string> currFileList;

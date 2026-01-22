@@ -10,11 +10,19 @@ void displayFoundFiles(int file_up, int file_down) {
     clearScreen;
 
     for (size_t i = file_up, line = 1; i < foundPaths.size() && i < file_up + rowSize; i++, line++) {
-        std::string filePath = foundPaths[i];
+        string filePath = foundPaths[i];
         
         // Truncate filePath if its length is less than colSize - 3
-        if (filePath.length() < cols - 3) {
-            filePath = filePath.substr(0, cols - 7) + "..."; // Add ellipsis for truncation
+        // if (filePath.length() < cols - 3) {
+        //     filePath = filePath.substr(0, cols - 7) + "..."; // Add ellipsis for truncation
+        // }
+
+        const size_t availableWidth = cols - 3;
+
+        if (filePath.length() > availableWidth) {
+            filePath = "..." + filePath.substr(
+                filePath.length() - (availableWidth - 3)
+            );
         }
 
         posx(static_cast<int>(line), 3);
@@ -130,7 +138,7 @@ void displaySearchResults(){
                 // rePath.xcurr=1;
                 // rePath.up_screen=0;
                 backStack.push(rePath);
-                logMessage(rebuiltPath);
+                // logMessage(rebuiltPath);
             }
 
             if (!backStack.empty()) {
@@ -213,16 +221,6 @@ void searchanything(char *path, string filename, bool check_file, bool check_dir
 
 void searchCommand(bool check_dir, bool check_file, string filename)
 {
-    // posx(rows-2, 0);
-    // if(check_dir && check_file)
-    //     printf("\033[1;33mEnter file/dir name to search: \033[0m");
-    // else if (check_dir)
-    //     printf("\033[1;33mEnter dir name to search: \033[0m");
-    // else if (check_file)
-    //     printf("\033[1;33mEnter file name to search: \033[0m");
-
-    // string filename=get_input();
-    // getline(cin >> ws, filename);
     if(filename.empty()) return;
 
     char *path = new char[strlen(currPath) + 1];
@@ -230,7 +228,12 @@ void searchCommand(bool check_dir, bool check_file, string filename)
 
     foundPaths.resize(0);
     transform(filename.begin(), filename.end(), filename.begin(), ::tolower); 
+
+    auto start = chrono::high_resolution_clock::now();
     searchanything(path, filename, check_file, check_dir);
+    auto end = chrono::high_resolution_clock::now();
+    auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - start);
+    logMessage("Search took: " + std::to_string(elapsed.count()) + " ms");
     clearScreen;
     displaySearchResults();
 }
