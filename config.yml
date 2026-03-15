@@ -1,4 +1,4 @@
 performance:
   workers: 5
-  indexing: false
-  indexing_root: /home
+  indexing: true
+  indexing_root: /Users/varalikaagarwal/Developer/cpp_projects/refined-explorer
