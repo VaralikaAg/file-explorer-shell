@@ -1,6 +1,6 @@
 #include "myheader.h"
 
-void startFolderSizeWorker(const string &path) {
+void startFolderSizeWorker(const std::string &path) {
     if (app.sizeState.worker.joinable()) {
         app.sizeState.cancelFlag = true;
         app.sizeState.worker.join();
@@ -11,15 +11,15 @@ void startFolderSizeWorker(const string &path) {
     app.ui.refresh = false;
     app.fileDetails.lastScanDuration = -1;
 
-    app.sizeState.worker = thread([path]() {
-        auto start = chrono::steady_clock::now();
+    app.sizeState.worker = std::thread([path]() {
+        auto start = std::chrono::steady_clock::now();
         off_t size = getFolderSizeMT(path, app.config.workers);
-        auto end = chrono::steady_clock::now();
+        auto end = std::chrono::steady_clock::now();
 
         {
             app.sizeState.lastSize = size;
             app.fileDetails.lastScanDuration =
-                chrono::duration_cast<chrono::milliseconds>(end - start).count();
+                std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
             app.sizeState.inProgress = false;
             app.ui.refresh = true;
         }
@@ -29,7 +29,7 @@ void startFolderSizeWorker(const string &path) {
     app.sizeState.worker.detach();
 }
 
-std::uintmax_t getFolderSizeMT(const string &rootPath, int numThreads)
+std::uintmax_t getFolderSizeMT(const std::string &rootPath, int numThreads)
 {
     std::queue<fs::path> dirQueue;
     std::mutex mtx;
@@ -117,7 +117,7 @@ std::uintmax_t getFolderSizeMT(const string &rootPath, int numThreads)
     return totalSize.load();
 }
 
-void getFileDetails(const string &path) {
+void getFileDetails(const std::string &path) {
     struct stat st;
     if (stat(path.c_str(), &st) != 0) return;
 

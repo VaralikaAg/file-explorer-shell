@@ -1,59 +1,39 @@
 #include "myheader.h"
 
-bool isDirectory(const char *path) {
-    struct stat statbuf;
-    if (stat(path, &statbuf) != 0)
-        return false;
-    return S_ISDIR(statbuf.st_mode);
-}
-
-bool isValidDirectory(const string &path) {
-    struct stat st;
-    if (stat(path.c_str(), &st) != 0)
-        return false;
-    return S_ISDIR(st.st_mode);
-}
-
-bool isRegularFile(const string &path) {
-    struct stat st;
-    return (stat(path.c_str(), &st) == 0 && S_ISREG(st.st_mode));
-}
-
-bool isDirectoryPath(const string &path) {
-    struct stat st;
-    return (stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode));
-}
-
-bool isReadableFile(const string &filepath) {
-    return (access(filepath.c_str(), R_OK) == 0);
-}
-
-bool isBinaryFile(const std::string &filepath)
+bool isDirectory(const fs::path &path) noexcept
 {
-    std::ifstream file(filepath, std::ios::binary);
+    std::error_code ec;
+    return fs::is_directory(fs::symlink_status(path, ec));
+}
 
-    if (!file)
-        return false; // cannot open → treat as non-binary
+bool isRegularFile(const fs::path &path) noexcept
+{
+    std::error_code ec;
+    return fs::is_regular_file(fs::symlink_status(path, ec));
+}
+
+bool isReadable(const fs::path& path) noexcept {
+    std::error_code ec;
+    auto perms = fs::status(path, ec).permissions();
+
+    return (perms & fs::perms::owner_read) != fs::perms::none;
+}
+
+bool isBinaryFile(const fs::path& path) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file) return false;
 
     std::vector<char> buffer(512);
     file.read(buffer.data(), buffer.size());
     std::streamsize bytesRead = file.gcount();
 
-    if (bytesRead <= 0)
-        return false;
-
-    for (std::streamsize i = 0; i < bytesRead; i++)
-    {
+    for (std::streamsize i = 0; i < bytesRead; i++) {
         unsigned char c = static_cast<unsigned char>(buffer[i]);
 
-        // null byte → strong binary indicator
-        if (c == '\0')
-            return true;
+        if (c == '\0') return true;
 
-        // non-printable and not whitespace
         if (!std::isprint(c) && !std::isspace(c))
             return true;
     }
-
     return false;
 }

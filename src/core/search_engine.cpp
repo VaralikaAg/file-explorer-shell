@@ -1,40 +1,30 @@
 #include "myheader.h"
 
-void searchanything(const char *path, string filename, bool check_file, bool check_dir) {
-    DIR *dir;
-    struct dirent *entry;
+void searchAnything(const fs::path &dir, const std::string &filename, bool check_file, bool check_dir)
+{
+    for (const auto &entry : fs::directory_iterator(dir))
+    {
+        fs::path fullPath = entry.path();
 
-    if ((dir = opendir(path)) == NULL) {
-        return; // Cannot open directory
-    }
+        std::string entryName = fullPath.filename().string();
+        std::transform(entryName.begin(), entryName.end(),
+                       entryName.begin(), ::tolower);
 
-    while ((entry = readdir(dir)) != NULL) {
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-            continue; // Ignore "." and ".."
-        }
+        bool isDir = isDirectory(fullPath);
 
-        // Construct full path
-        string fullPath = string(path) + "/" + entry->d_name;
-        string entry_name = (string)entry->d_name;
-        transform(entry_name.begin(), entry_name.end(), entry_name.begin(), ::tolower); 
-
-        // Check if the name matches
-        if (isDirectory(fullPath.c_str()) && check_dir){
-            if (entry_name.find(filename)!=string::npos) {
-                app.search.foundPaths.push_back(fullPath); // Store the found path
-            }
-        }
-        else if(!isDirectory(fullPath.c_str()) && check_file){
-            if (entry_name.find(filename)!=string::npos) {
-                app.search.foundPaths.push_back(fullPath); // Store the found path
+        // 🔹 Match logic (no duplication)
+        if ((isDir && check_dir) || (!isDir && check_file))
+        {
+            if (entryName.find(filename) != std::string::npos)
+            {
+                app.search.foundPaths.push_back(fullPath.string());
             }
         }
 
-        // If it's a directory, recurse into it
-        if (isDirectory(fullPath.c_str())) {
-            searchanything((char *)fullPath.c_str(), filename, check_file, check_dir);
+        // 🔹 Recurse
+        if (isDir)
+        {
+            searchAnything(fullPath, filename, check_file, check_dir);
         }
     }
-
-    closedir(dir);
 }

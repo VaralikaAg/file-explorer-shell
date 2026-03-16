@@ -13,8 +13,8 @@ bool inputAvailable()
     return select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &tv) > 0;
 }
 
-string get_input() {
-    string commandLine;
+std::string get_input() {
+    std::string commandLine;
     char ch;
 
     while (true) {

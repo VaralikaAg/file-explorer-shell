@@ -1,6 +1,6 @@
 #include "myheader.h"
 
-void invalidateDirCache(const string &dirPath)
+void invalidateDirCache(const std::string &dirPath)
 {
     auto it = app.cache.dirCache.find(dirPath);
     if (it != app.cache.dirCache.end())

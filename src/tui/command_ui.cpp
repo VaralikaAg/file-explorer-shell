@@ -2,11 +2,11 @@
 
 void commandMode()
 {
-    posx(app.ui.rows - 2, 0);
+    setCursorPos(app.ui.rows - 2, 0);
     printf("\033[K");
     printf("\033[1;36m:\033[0m ");
 
-    string commandLine = get_input();
+    std::string commandLine = get_input();
 
     CommandResult res = processCommand(commandLine);
 
@@ -23,7 +23,7 @@ void commandMode()
 
     // STATUS MESSAGE
     if (!res.message.empty()) {
-        string color = res.success ? "\033[1;32m" : "\033[1;31m";
+        std::string color = res.success ? "\033[1;32m" : "\033[1;31m";
         showStatusMessage(res.message, color);
     }
 

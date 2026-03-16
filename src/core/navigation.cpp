@@ -2,18 +2,11 @@
 
 struct termios initialrsettings, newrsettings;
 
-string getSelectedPath() {
-    string selectedFile = app.nav.fileList[app.nav.xcurr + app.nav.up_screen - 1];
-    string path = app.nav.currPath;
-    if (path.back() != '/') path += "/";
-    return path + selectedFile;
-}
+fs::path getSelectedPath() noexcept {
+    const std::string& selectedFile =
+        app.nav.fileList[app.nav.xcurr + app.nav.up_screen - 1];
 
-bool isCurrentSelectionDir() {
-    struct stat st;
-    string path = getSelectedPath();
-    if (lstat(path.c_str(), &st) != 0) return false;
-    return S_ISDIR(st.st_mode);
+    return fs::path(app.nav.currPath) / selectedFile;
 }
 
 void moveUp() {
@@ -38,7 +31,7 @@ void moveDown() {
     }
 }
 
-void enterDirectory(const string &newPath) {
+void enterDirectory(const std::string &newPath) {
     NavState currentState;
     currentState.path = app.nav.currPath;
     currentState.xcurr = app.nav.xcurr;
@@ -70,95 +63,138 @@ void goBack() {
     }
 }
 
+void openFile(const std::string& path) noexcept {
+#ifdef _WIN32
+    std::string cmd = "start \"\" \"" + path + "\"";
+#elif __APPLE__
+    std::string cmd = "open \"" + path + "\"";
+#else
+    std::string cmd = "xdg-open \"" + path + "\"";
+#endif
+
+    std::system(cmd.c_str()); // simple and portable
+}
+
 void handleEnter() {
-    string newPath = getSelectedPath();
+    fs::path newPath = getSelectedPath();
 
-    struct stat sb;
-    stat(newPath.c_str(), &sb);
-
-    if (S_ISDIR(sb.st_mode)) {
+    if (isDirectory(newPath)) {
         openCurrDirectory(newPath.c_str());
 
         if (!app.nav.fileList.empty()) {
             enterDirectory(newPath);
         }
     }
-    else if (S_ISREG(sb.st_mode)) {
-        pid_t pid = fork();
+    else if (isRegularFile(newPath)) {
+        openFile(newPath);
+    }
+}
 
-        if (pid == 0) {
-            int nullFile = open("/dev/null", O_WRONLY);
-            dup2(nullFile, STDERR_FILENO);
-            close(nullFile);
-
-            execlp("xdg-open", "xdg-open", newPath.c_str(), NULL);
-            exit(EXIT_FAILURE);
+// Map raw input char to KeyAction
+KeyAction mapKey(char ch, bool isEscSequence = false) {
+    if (isEscSequence) { // Arrow keys after ESC + '['
+        switch (ch) {
+            case 'A': return KeyAction::UP;
+            case 'B': return KeyAction::DOWN;
+            case 'C': return KeyAction::RIGHT;
+            case 'D': return KeyAction::LEFT;
+            default:  return KeyAction::UNKNOWN;
+        }
+    } else { // Normal keys
+        switch (ch) {
+            case 'c': return KeyAction::COPY;
+            case 'p': return KeyAction::PASTE;
+            case 'd': return KeyAction::DELETE;
+            case ':': return KeyAction::COMMAND;
+            case ' ': return KeyAction::TOGGLE_SELECT;
+            case 'u': return KeyAction::CLEAR_SELECTION;
+            case 127:
+            case 8: return KeyAction::BACK;
+            case '\n':
+            case '\r': return KeyAction::ENTER;
+            default: return KeyAction::UNKNOWN;
         }
     }
 }
 
-void handleArrowKeys() {
-    char ch = cin.get();
-
-    if (ch == 'A') {            // UP
-        stopFolderScan();
-        moveUp();
-    }
-    else if (ch == 'B') {       // DOWN
-        stopFolderScan();
-        moveDown();
-    }
-    else if (ch == 'C') {       // RIGHT
-        stopFolderScan();
-        app.selection.selectedFiles.clear();
-
-        string newPath = getSelectedPath();
-
-        if (isDirectory(newPath.c_str())) {
-            openCurrDirectory(newPath.c_str());
-            enterDirectory(newPath);
-        }
-    }
-    else if (ch == 'D') {       // LEFT
-        stopFolderScan();
-        app.selection.selectedFiles.clear();
-        goBack();
-    }
-}
-
+// Unified processKey function
 void processKey(char ch) {
+    KeyAction action = KeyAction::UNKNOWN;
 
-    if (ch == 27) {  // ESC
-        cin.get();   // skip '['
-        handleArrowKeys();
+    if (ch == 27) { // ESC sequence
+        char next = std::cin.get();
+        if (next == '[') {
+            char arrow = std::cin.get();
+            action = mapKey(arrow, true);
+        }
+    } else {
+        action = mapKey(ch);
     }
-    else if (ch == 'c') {
-        copy();
-    }
-    else if (ch == 'p') {
-        string pasted = paste();
-        refreshCurrentDirectory();
-        if (!pasted.empty()) update_position(pasted);
-        
-    }
-    else if (ch == 'd') {
-        deleteSelectedItems();
-    }
-    else if (ch == ':') {
-        renderUI();
-        commandMode();
-    }
-    else if (ch == ' ') {
-        toggleSelect();
-    }
-    else if (ch == 'u') {
-        app.selection.selectedFiles.clear();
-    }
-    else if (ch == 127 || ch == 8) {
-        goBack();
-    }
-    else if (ch == '\n' || ch == '\r') {
-        handleEnter();
+
+    // Handle the action
+    switch (action) {
+        case KeyAction::UP: 
+            stopFolderScan(); 
+            moveUp(); 
+            break;
+
+        case KeyAction::DOWN: 
+            stopFolderScan(); 
+            moveDown(); 
+            break;
+
+        case KeyAction::RIGHT: 
+        {
+            stopFolderScan();
+            app.selection.selectedFiles.clear();
+
+            fs::path newPath = getSelectedPath();
+            if (isDirectory(newPath)) {
+                openCurrDirectory(newPath.c_str());
+                enterDirectory(newPath);
+            }
+            break;
+        }
+
+        case KeyAction::LEFT: 
+        {
+            stopFolderScan();
+            app.selection.selectedFiles.clear();
+            goBack();
+            break;
+        }
+
+        case KeyAction::COPY: copy(); break;
+
+        case KeyAction::PASTE: 
+        {
+            std::string pasted = paste();
+            refreshCurrentDirectory();
+            if (!pasted.empty()) update_position(pasted);
+            break;
+        }
+
+        case KeyAction::DELETE: 
+        {
+            clearScreen();
+            setCursorPos(1, 1);
+            std::cout << "Are you sure you want to delete selected items? (y/n): " << std::flush;
+            char confirm = getchar();
+            if (confirm == 'y' || confirm == 'Y') deleteSelectedItems();
+            break;
+        }
+
+        case KeyAction::COMMAND: renderUI(); commandMode(); break;
+
+        case KeyAction::TOGGLE_SELECT: toggleSelect(); break;
+
+        case KeyAction::CLEAR_SELECTION: app.selection.selectedFiles.clear(); break;
+
+        case KeyAction::BACK: goBack(); break;
+
+        case KeyAction::ENTER: handleEnter(); break;
+
+        default: break; // UNKNOWN keys ignored
     }
 }
 
@@ -166,25 +202,13 @@ void navigate() {
 
     app.nav.currPath = app.nav.root;
 
-    openDirectory(app.nav.currPath.c_str(),
-                  app.nav.up_screen,
-                  app.nav.down_screen);
+    openCurrDirectory(app.nav.currPath.c_str());
 
-    app.nav.up_screen =
-        (int)app.nav.fileList.size() > app.layout.rowSize
-            ? (int)app.nav.fileList.size() - app.layout.rowSize
-            : 0;
-
-    app.nav.down_screen =
-        (int)app.nav.fileList.size() - app.nav.up_screen - app.layout.rowSize;
-
-    app.nav.xcurr =
-        app.layout.rowSize < (int)app.nav.fileList.size()
-            ? app.layout.rowSize
-            : (int)app.nav.fileList.size();
+    scrollToIndex((int)app.nav.fileList.size() - 1, (int)app.nav.fileList.size(), app.layout.rowSize, app.nav.up_screen, app.nav.down_screen, app.nav.xcurr);
 
     renderUI();
-    pos();
+    setDefaultCursorPos();
+
 
     char ch;
 
@@ -206,13 +230,13 @@ void navigate() {
         }
 
         if (inputAvailable()) {
-            ch = cin.get();
+            ch = std::cin.get();
 
             processKey(ch);
 
             refreshCurrentDirectory();
             renderUI();
-            pos();
+            setDefaultCursorPos();
         }
     }
 }

@@ -1,30 +1,30 @@
 #include "myheader.h"
 
-void searchCommand(bool check_dir, bool check_file, string filename)
+void searchCommand(bool check_dir, bool check_file, std::string filename)
 {
     if(filename.empty()) return;
 
-    string path = app.nav.currPath;
+    std::string path = app.nav.currPath;
 
     app.search.foundPaths.resize(0);
     transform(filename.begin(), filename.end(), filename.begin(), ::tolower); 
 
-    auto start = chrono::high_resolution_clock::now();
-    searchanything(path.c_str(), filename, check_file, check_dir);
-    auto end = chrono::high_resolution_clock::now();
-    auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - start);
+    auto start = std::chrono::high_resolution_clock::now();
+    searchAnything(path.c_str(), filename, check_file, check_dir);
+    auto end = std::chrono::high_resolution_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     logMessage("Search took: " + std::to_string(elapsed.count()) + " ms");
-    clearScreen;
+    clearScreen();
     displaySearchResults();
 }
 
 void copy() {
-    vector<string> tempClipboard;
+    std::vector<std::string> tempClipboard;
 
     if (!app.selection.selectedFiles.empty()) {
         for (auto &path : app.selection.selectedFiles) {
             if (path.empty())
-                throw runtime_error("Empty path in selectedFiles");
+                throw std::runtime_error("Empty path in selectedFiles");
 
             tempClipboard.push_back(path);
         }
@@ -32,22 +32,22 @@ void copy() {
         int index = app.nav.xcurr + app.nav.up_screen - 1;
 
         if (index < 0 || index >= (int)app.nav.fileList.size())
-            throw out_of_range("Invalid cursor index");
+            throw std::out_of_range("Invalid cursor index");
 
-        string file = app.nav.fileList[index];
+        std::string file = app.nav.fileList[index];
         tempClipboard.push_back(app.nav.currPath + "/" + file);
     }
 
     app.selection.clipboard = std::move(tempClipboard);
 }
 
-string paste()
+std::string paste()
 {
     if (app.selection.clipboard.empty())
     return "";
     
-    vector<string> pastedFiles;
-    string fileName="";
+    std::vector<std::string> pastedFiles;
+    std::string fileName="";
     for (auto &src : app.selection.clipboard) {
         fs::path sourcePath(src);
         fs::path dest = fs::path(app.nav.currPath) / sourcePath.filename();
@@ -76,13 +76,13 @@ string paste()
 
 void deleteSelectedItems()
 {
-    vector<string> targets;
+    std::vector<std::string> targets;
 
     if (!app.selection.selectedFiles.empty()) {
         for (auto &p : app.selection.selectedFiles)
             targets.push_back(p);
     } else {
-        string file = app.nav.fileList[app.nav.xcurr + app.nav.up_screen - 1];
+        std::string file = app.nav.fileList[app.nav.xcurr + app.nav.up_screen - 1];
         targets.push_back(app.nav.currPath + "/" + file);
     }
 
@@ -99,12 +99,12 @@ void deleteSelectedItems()
     app.selection.selectedFiles.clear();
 }
 
-bool renameItem(const string &selectedFile, const string &newName)
+bool renameItem(const std::string &selectedFile, const std::string &newName)
 {
     if (newName.empty()) return false;
 
-    string oldPath = app.nav.currPath + "/" + selectedFile;
-    string newPath = app.nav.currPath + "/" + newName;
+    std::string oldPath = app.nav.currPath + "/" + selectedFile;
+    std::string newPath = app.nav.currPath + "/" + newName;
 
     if (rename(oldPath.c_str(), newPath.c_str()) != 0)
         return false;
@@ -118,13 +118,13 @@ bool renameItem(const string &selectedFile, const string &newName)
     return true;
 }
 
-bool createFile(const string &fileName)
+bool createFile(const std::string &fileName)
 {
     if (fileName.empty()) return false;
 
-    string filePath = app.nav.currPath + "/" + fileName;
+    std::string filePath = app.nav.currPath + "/" + fileName;
 
-    ofstream file(filePath);
+    std::ofstream file(filePath);
     if (!file) return false;
     file.close();
 
@@ -137,11 +137,11 @@ bool createFile(const string &fileName)
     return true;
 }
 
-bool createDirectory(const string &dirName)
+bool createDirectory(const std::string &dirName)
 {
     if (dirName.empty()) return false;
 
-    string dirPath = app.nav.currPath + "/" + dirName;
+    std::string dirPath = app.nav.currPath + "/" + dirName;
 
     if (mkdir(dirPath.c_str(), 0777) != 0)
         return false;

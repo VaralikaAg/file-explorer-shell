@@ -1,6 +1,6 @@
 #include "myheader.h"
 
-int InvertedIndex::getWordId(const string &word)
+int InvertedIndex::getWordId(const std::string &word)
 {
     auto it = wordToId.find(word);
     if (it != wordToId.end())
@@ -12,7 +12,7 @@ int InvertedIndex::getWordId(const string &word)
     return id;
 }
 
-void InvertedIndex::indexPath(const string &path)
+void InvertedIndex::indexPath(const std::string &path)
 {
     int file_id;
 
@@ -38,8 +38,8 @@ void InvertedIndex::indexPath(const string &path)
 
     /* ---------- INDEX FILE / DIR NAME ---------- */
     size_t pos = path.find_last_of("/\\");
-    string name = (pos == string::npos) ? path : path.substr(pos + 1);
-    string cleanName = normalizeWord(name);
+    std::string name = (pos == std::string::npos) ? path : path.substr(pos + 1);
+    std::string cleanName = normalizeWord(name);
 
     if (!cleanName.empty()) {
         int wid = getWordId(cleanName);
@@ -48,18 +48,18 @@ void InvertedIndex::indexPath(const string &path)
     }
 
     /* ---------- STOP IF DIRECTORY ---------- */
-    if (isDirectoryPath(path)) return;
+    if (isDirectory(path)) return;
     if (!isRegularFile(path)) return;
 
-    ifstream fp(path);
+    std::ifstream fp(path);
     if (!fp) return;
 
     /* ---------- INDEX FILE CONTENT ---------- */
-    string line, word;
+    std::string line, word;
     while (getline(fp, line)) {
-        stringstream ss(line);
+        std::stringstream ss(line);
         while (ss >> word) {
-            string clean = normalizeWord(word);
+            std::string clean = normalizeWord(word);
             if (clean.empty()) continue;
 
             int word_id = getWordId(clean);
@@ -72,28 +72,28 @@ void InvertedIndex::indexPath(const string &path)
     fp.close();
 }
 
-void InvertedIndex::indexAllOnce(queue<string> &paths)
+void InvertedIndex::indexAllOnce(std::queue<std::string> &paths)
 {
     while (!paths.empty()) {
-        string path = paths.front();
+        std::string path = paths.front();
         paths.pop();
         indexPath(path);
     }
 }
 
-void InvertedIndex::search(const string &query)
+void InvertedIndex::search(const std::string &query)
 {
     app.search.foundPaths.clear();   // GLOBAL vector<string>
 
     // auto t1 = chrono::high_resolution_clock::now();
 
-    stringstream ss(query);
-    string token;
-    vector<int> queryWordIds;
+    std::stringstream ss(query);
+    std::string token;
+    std::vector<int> queryWordIds;
 
     /* 1️⃣ Normalize + map to word IDs */
     while (ss >> token) {
-        string clean = normalizeWord(token);
+        std::string clean = normalizeWord(token);
         if (clean.empty()) continue;
 
         auto it = wordToId.find(clean);
@@ -106,7 +106,7 @@ void InvertedIndex::search(const string &query)
     if (queryWordIds.empty()) return;
 
     /* 2️⃣ Count files */
-    unordered_map<int,int> fileCounter;
+    std::unordered_map<int, int> fileCounter;
 
     for (int wid : queryWordIds) {
         auto it = invertedIndex.find(wid);
@@ -131,9 +131,8 @@ void InvertedIndex::search(const string &query)
 
 void InvertedIndex::rectifyIndex(
     RectifyAction action,
-    const vector<string>& oldPaths,
-    const vector<string>& newPaths
-)
+    const std::vector<std::string> &oldPaths,
+    const std::vector<std::string> &newPaths)
 {
     switch (action) {
 
@@ -162,7 +161,7 @@ void InvertedIndex::rectifyIndex(
     }
 }
 
-void InvertedIndex::removePath(const string &path)
+void InvertedIndex::removePath(const std::string &path)
 {
     auto fit = fileToId.find(path);
     if (fit == fileToId.end())

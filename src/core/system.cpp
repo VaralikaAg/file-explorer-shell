@@ -25,13 +25,14 @@ void stopFolderScan() {
     if (app.sizeState.worker.joinable())
         app.sizeState.worker.join();
     app.sizeState.inProgress = false;
-    pos();
+    setDefaultCursorPos();
 }
 
-void runIndexingInBackground(const string root) {
+void runIndexingInBackground(const std::string root) {
     app.indexing.indexingInProgress = true;
 
-    if (!isValidDirectory(root)) {
+    if (!isDirectory(root))
+    {
         app.indexing.indexingInProgress = false;
         fprintf(stderr,
             "\033[1;31mError:\033[0m indexing_root '%s' is not a valid directory\n",
@@ -45,19 +46,19 @@ void runIndexingInBackground(const string root) {
     traverse(root);
 
     logMessage("Traversal complete. Total paths queued: " +
-               to_string(app.indexing.indexQueue.size()));
+               std::to_string(app.indexing.indexQueue.size()));
 
-    auto t1 = chrono::high_resolution_clock::now();
+    auto t1 = std::chrono::high_resolution_clock::now();
 
     app.indexing.index.indexAllOnce(app.indexing.indexQueue);
 
-    auto t2 = chrono::high_resolution_clock::now();
+    auto t2 = std::chrono::high_resolution_clock::now();
 
     logMessage("Indexing finished.");
     logMessage("Indexing took: " +
-        to_string(
-            chrono::duration_cast<chrono::seconds>(t2 - t1).count()
-        ) + " seconds");
+               std::to_string(
+                   std::chrono::duration_cast<std::chrono::seconds>(t2 - t1).count()) +
+               " seconds");
 
     app.indexing.indexingInProgress = false;
 }

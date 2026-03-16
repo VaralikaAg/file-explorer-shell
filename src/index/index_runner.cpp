@@ -2,10 +2,10 @@
 
 void startIndexing()
 {
-    string s = "Process ID: " + to_string(getpid());
+    std::string s = "Process ID: " + std::to_string(getpid());
     logMessage(s);
 
-    string main_root = app.config.indexingRoot;
+    std::string main_root = app.config.indexingRoot;
 
     if (app.config.indexingEnabled)
     {

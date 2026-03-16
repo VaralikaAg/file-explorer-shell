@@ -12,11 +12,11 @@ void initializeNavigation(int argc, char *argv[]) {
         app.nav.root = argv[1];
     }
 
-    string absPath = app.nav.root;
+    std::string absPath = app.nav.root;
 
-    vector<string> pathParts;
-    stringstream ss(absPath);
-    string segment;
+    std::vector<std::string> pathParts;
+    std::stringstream ss(absPath);
+    std::string segment;
 
     while (getline(ss, segment, '/')) {
         if (!segment.empty()) {
@@ -24,20 +24,20 @@ void initializeNavigation(int argc, char *argv[]) {
         }
     }
 
-    stack<NavState> tempStack, dummyStack;
+    std::stack<NavState> tempStack, dummyStack;
 
-    string newPath = "";
+    std::string newPath = "";
 
     for (size_t ind=0; ind<pathParts.size(); ind++) {
         const auto dir = pathParts[ind];
         newPath = newPath + "/" + dir;
 
-        vector<string> currFileList;
+        std::vector<std::string> currFileList;
         DIR *d = opendir(newPath.c_str());
         if (d) {
             struct dirent *entry;
             while ((entry = readdir(d)) != nullptr) {
-                string name = entry->d_name;
+                std::string name = entry->d_name;
                 if (name == "." || name == "..") continue;
                 currFileList.push_back(name);
             }

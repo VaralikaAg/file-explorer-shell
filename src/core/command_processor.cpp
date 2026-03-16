@@ -1,12 +1,12 @@
 #include "myheader.h"
 
-CommandResult processCommand(const string &commandLine)
+CommandResult processCommand(const std::string &commandLine)
 {
     CommandResult result;
 
-    vector<string> args;
-    stringstream ss(commandLine);
-    string word;
+    std::vector<std::string> args;
+    std::stringstream ss(commandLine);
+    std::string word;
 
     while (ss >> word)
         args.push_back(word);
@@ -16,13 +16,13 @@ CommandResult processCommand(const string &commandLine)
         return result;
     }
 
-    string command = args[0];
+    std::string command = args[0];
 
     try {
 
         // 🔹 RENAME
         if (command == "rename" && args.size() > 1) {
-            string selectedFile =
+            std::string selectedFile =
                 app.nav.fileList[app.nav.xcurr + app.nav.up_screen - 1];
 
             if (!renameItem(selectedFile, args[1])) {
@@ -58,7 +58,7 @@ CommandResult processCommand(const string &commandLine)
 
         // 🔹 CD
         else if (command == "cd" && args.size() > 1) {
-            string absPath = args[1];
+            std::string absPath = args[1];
             for (int i = 2; i < (int)args.size(); i++)
                 absPath += " " + args[i];
 
@@ -68,7 +68,7 @@ CommandResult processCommand(const string &commandLine)
 
         // 🔹 SEARCH
         else if (command == "search" && args.size() > 1) {
-            string flag, filename;
+            std::string flag, filename;
             bool check_dir = true, check_file = true;
 
             flag = args[1];
@@ -100,7 +100,7 @@ CommandResult processCommand(const string &commandLine)
                 i = 2;
             }
 
-            string query;
+            std::string query;
             for (; i < args.size(); i++) {
                 if (!query.empty()) query += " ";
                 query += args[i];
@@ -109,7 +109,7 @@ CommandResult processCommand(const string &commandLine)
             app.indexing.index.search(query);
 
             if (dirOnly) {
-                vector<string> filtered;
+                std::vector<std::string> filtered;
                 for (auto &p : app.search.foundPaths) {
                     if (isUnderCurrentDir(p))
                         filtered.push_back(p);
@@ -144,7 +144,7 @@ CommandResult processCommand(const string &commandLine)
             result.message = "Invalid command (:help)";
         }
 
-    } catch (const exception &e) {
+    } catch (const std::exception &e) {
         result.success = false;
         result.message = e.what();
     }

@@ -30,14 +30,13 @@
 #include <cstring>
 #include <filesystem>
 
-using namespace std;
 namespace fs = std::filesystem;
 
 // Extern Global Variables
 
 struct NavState
 {
-    string path;   // The directory path
+    std::string path;   // The directory path
     int xcurr;     // Cursor row within the display window
     int up_screen; // Starting index of files being displayed
 };
@@ -50,41 +49,58 @@ enum class RectifyAction
     DELETE
 };
 
+enum class KeyAction {
+    ESC,
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT,
+    COPY,
+    PASTE,
+    DELETE,
+    COMMAND,
+    TOGGLE_SELECT,
+    CLEAR_SELECTION,
+    BACK,
+    ENTER,
+    UNKNOWN
+};
+
 class InvertedIndex
 {
     /* FILE ID MAPPING */
-    unordered_map<string, int> fileToId;
-    vector<string> idToFile;
+    std::unordered_map<std::string, int> fileToId;
+    std::vector<std::string> idToFile;
 
     /* WORD ID MAPPING */
-    unordered_map<string, int> wordToId;
-    vector<string> idToWord;
+    std::unordered_map<std::string, int> wordToId;
+    std::vector<std::string> idToWord;
 
     /* INVERTED INDEX (word_id → set<file_id>) */
-    unordered_map<int, unordered_set<int>> invertedIndex;
+    std::unordered_map<int, std::unordered_set<int>> invertedIndex;
 
     /* FORWARD INDEX (file_id → set<word_id>) */
-    unordered_map<int, unordered_set<int>> forwardIndex;
+    std::unordered_map<int, std::unordered_set<int>> forwardIndex;
 
 public:
-    void indexPath(const string &path);
-    void indexAllOnce(queue<string> &paths);
-    void search(const string &word);
-    int getWordId(const string &word);
+    void indexPath(const std::string &path);
+    void indexAllOnce(std::queue<std::string> &paths);
+    void search(const std::string &word);
+    int getWordId(const std::string &word);
     void rectifyIndex(
         RectifyAction type,
-        const vector<string> &newPaths = {},
-        const vector<string> &oldPaths = {});
-    void removePath(const string &path);
+        const std::vector<std::string> &newPaths = {},
+        const std::vector<std::string> &oldPaths = {});
+    void removePath(const std::string &path);
 };
 
 struct NavigatorState
 {
-    string root;
-    string currPath;
-    string prevPath;
+    std::string root;
+    std::string currPath;
+    std::string prevPath;
 
-    vector<string> fileList;
+    std::vector<std::string> fileList;
 
     int xcurr = 1;
     int ycurr = 0;
@@ -92,42 +108,42 @@ struct NavigatorState
     int up_screen = 0;
     int down_screen = 0;
 
-    stack<NavState> backStack;
-    stack<NavState> forwardStack;
+    std::stack<NavState> backStack;
+    std::stack<NavState> forwardStack;
 };
 
 struct SearchState
 {
-    vector<string> foundPaths;
+    std::vector<std::string> foundPaths;
 };
 
 struct Config
 {
     int workers = 4;
     bool indexingEnabled = false;
-    string indexingRoot;
+    std::string indexingRoot;
 };
 
 struct IndexingState
 {
-    queue<string> indexQueue;
+    std::queue<std::string> indexQueue;
     InvertedIndex index;
-    vector<int> freeFileIds;
+    std::vector<int> freeFileIds;
 
-    atomic<bool> indexingInProgress{false};
-    thread worker;
+    std::atomic<bool> indexingInProgress{false};
+    std::thread worker;
 };
 
 struct SizeComputationState
 {
-    atomic<bool> cancelFlag{false};
-    atomic<bool> inProgress{false};
-    atomic<off_t> lastSize{0};
+    std::atomic<bool> cancelFlag{false};
+    std::atomic<bool> inProgress{false};
+    std::atomic<off_t> lastSize{0};
 
-    thread worker;
+    std::thread worker;
 
-    mutex mtx;
-    condition_variable cv;
+    std::mutex mtx;
+    std::condition_variable cv;
 };
 
 struct UIState
@@ -135,19 +151,19 @@ struct UIState
     int rows = 0;
     int cols = 0;
 
-    atomic<bool> refresh{false};
-    mutex mtx;
+    std::atomic<bool> refresh{false};
+    std::mutex mtx;
 };
 
 struct SelectionState
 {
-    vector<string> clipboard;
-    unordered_set<string> selectedFiles;
+    std::vector<std::string> clipboard;
+    std::unordered_set<std::string> selectedFiles;
 };
 
 struct CacheState
 {
-    unordered_map<string, vector<string>> dirCache;
+    std::unordered_map<std::string, std::vector<std::string>> dirCache;
     const int max_cache_entries = 1000000;
 };
 
@@ -167,11 +183,11 @@ struct LayoutState
 
 struct FileDetailsState
 {
-    string fileName;
-    string userName;
-    string groupName;
-    string permissions;
-    string fileSize;
+    std::string fileName;
+    std::string userName;
+    std::string groupName;
+    std::string permissions;
+    std::string fileSize;
 
     int lastScanDuration = 0;
     int colSize = 0;
@@ -196,66 +212,77 @@ struct AppState
 struct CommandResult {
     bool success = true;
     bool refresh = true;
-    string message = "";
-    string color = "\033[1;32m";
-    string targetFile = "";
+    std::string message = "";
+    std::string color = "\033[1;32m";
+    std::string targetFile = "";
 };
 
 extern struct termios initialrsettings, newrsettings;
 
 extern AppState app;
 
-#define esc 27
-#define clearScreen fputs("\033[H\033[2J", stdout)
-#define pos() cout << "\033[" << app.nav.xcurr << ";" << app.nav.ycurr << "H" << flush
-#define posx(x, y) cout << "\033[" << x << ";" << y << "H" << flush
-#define setCursorRed() fprintf(stdout, "\033]12;#ff0000\007")
-#define resetCursorColor() fprintf(stdout, "\033]112\007")
+constexpr int ESC = 27;
+inline void clearScreen() noexcept {
+    fputs("\033[H\033[2J", stdout);
+}
+inline void setDefaultCursorPos() noexcept {
+    std::cout << "\033[" << app.nav.xcurr << ";" << app.nav.ycurr << "H" << std::flush;
+}
+inline void setCursorPos(int x, int y) noexcept {
+    std::cout << "\033[" << x << ";" << y << "H" << std::flush;
+}
+inline void setCursorRed() noexcept {
+    fprintf(stdout, "\033]12;#ff0000\007");
+}
+inline void resetCursorColor() noexcept {
+    fprintf(stdout, "\033]112;\007");
+}
 
 // Global Method Declarations
 int getDirectoryCount(const fs::path &path);
 void openDirectory(const char *path, int &up, int &down);
 void openCurrDirectory(const char *path);
 void navigate();
-void display(string fileName, string root);
-bool isDirectory(const char *newPath);
-void invalidateDirCache(const string &dirPath);
+void display(const std::string &fileName, const fs::path &root) noexcept;
+bool isDirectory(const fs::path &path) noexcept;
+void invalidateDirCache(const std::string &dirPath);
 void handleSigint(int signum);
 void handleResize(int sig);
 void copy();
-string paste();
+std::string paste();
 void deleteSelectedItems();
 void commandMode();
-bool renameItem(const string &selectedFile, const string &newName);
-bool createFile(const string &fileName);
-bool createDirectory(const string &dirName);
-void navigateToAbsolutePath(const string &absPath);
-void searchanything(const char *path, string filename, bool check_file, bool check_dir);
-void searchCommand(bool check_dir, bool check_file, string filename);
+bool renameItem(const std::string &selectedFile, const std::string &newName);
+bool createFile(const std::string &fileName);
+bool createDirectory(const std::string &dirName);
+void navigateToAbsolutePath(const std::string &absPath);
+void searchAnything(const fs::path &dir, const std::string &filename, bool check_file, bool check_dir);
+void searchCommand(bool check_dir, bool check_file, std::string filename);
 void showHelp();
 void toggleSelect();
 void normalizeCursor();
 void loadConfig();
 void displaySearchResults();
-bool isReadableFile(const string &filepath);
-bool isBinaryFile(const string &filepath);
-void displayTextFile(const string &filepath);
-void update_position(const string &fileName);
-void logMessage(const string &message);
-string get_input();
+bool isReadable(const fs::path &path) noexcept;
+bool isBinaryFile(const fs::path &path);
+void displayTextFile(const std::string &filepath);
+void normalizeRange(int total, int rowSize, int &up, int &down, int &x);
+void scrollToIndex(int index, int total, int rowSize, int &up, int &down, int &x);
+void update_position(const std::string &fileName);
+void logMessage(const std::string &message);
+std::string get_input();
 void get_terminal_size();
-void getFileDetails(const string &path);
-std::uintmax_t getFolderSizeMT(const string &rootPath, int numThreads);
-string humanReadableSize(off_t size);
-string normalizeWord(const string &input);
-void traverse(const string &root);
-bool isUnderCurrentDir(const string &path);
-bool isValidDirectory(const string &path);
+void getFileDetails(const std::string &path);
+std::uintmax_t getFolderSizeMT(const std::string &rootPath, int numThreads);
+std::string humanReadableSize(off_t size);
+std::string normalizeWord(const std::string &input);
+void traverse(const std::string &root);
+bool isUnderCurrentDir(const std::string &path);
 void hideCursor();
 void showCursor();
-void showTempMessage(const string &msg, int wait_ms);
+void showTempMessage(const std::string &msg, int wait_ms);
 void stopFolderScan();
-void runIndexingInBackground(const string root);
+void runIndexingInBackground(const std::string root);
 void renderUI();
 bool inputAvailable();
 void print_details();
@@ -266,14 +293,15 @@ void initializeNavigation(int argc, char *argv[]);
 void renderMiddlePanel();
 void renderRightPanel();
 void renderStatusBar();
-void renderFilePreview(const string &newPath, bool isReadable);
-void renderDirectoryPreview(const string &newPath);
-void jumpToSearchResult(const string &selectedPath);
-bool isDirectoryPath(const string &path);
-bool isRegularFile(const string &path);
-string truncateStr(const string &str, size_t maxLength);
-void showStatusMessage(const string &msg, const string &color);
-CommandResult processCommand(const string &commandLine);
+void renderFilePreview(const std::string &newPath, bool isReadable);
+void renderDirectoryPreview(const std::string &newPath);
+void jumpToSearchResult(const std::string &selectedPath);
+bool isRegularFile(const fs::path &path) noexcept;
+std::string truncateStr(const std::string &str, size_t maxLength);
+void showStatusMessage(const std::string &msg, const std::string &color);
+CommandResult processCommand(const std::string &commandLine);
 void handleResizeIfNeeded();
-string getSelectedPath();
+fs::path getSelectedPath() noexcept;
 void refreshCurrentDirectory();
+void openFile(const std::string &path) noexcept;
+void handleEnter();

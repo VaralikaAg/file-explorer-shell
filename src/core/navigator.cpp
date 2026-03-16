@@ -1,17 +1,58 @@
 #include "myheader.h"
 
-void openDirectory(const char *path, int &up, int &down)
+void normalizeRange(int total, int rowSize, int &up, int &down, int &x)
 {
-    app.layout.totalFiles = getDirectoryCount(path);
-    if(app.layout.totalFiles == 0) {
+    if (total == 0)
+    {
+        up = 0;
+        down = 0;
+        x = 1;
         return;
     }
 
-    up = (int)app.nav.fileList.size() > app.layout.rowSize 
-        ? (int)app.nav.fileList.size() - app.layout.rowSize 
-        : 0;
+    int maxUp = (total > rowSize) ? total - rowSize : 0;
+    if (up < 0)
+        up = 0;
+    if (up > maxUp)
+        up = maxUp;
 
-    down = max(0,(int)(app.nav.fileList.size() - up - app.layout.rowSize));
+    int visible = total - up;
+    int maxX = std::min(rowSize, visible);
+    if (x < 1)
+        x = 1;
+    if (x > maxX)
+        x = maxX;
+
+    down = std::max(0, total - up - rowSize);
+}
+
+void scrollToIndex(int index, int total, int rowSize, int &up, int &down, int &x)
+{
+    if (index < 0 || total == 0)
+        return;
+
+    if (index >= total)
+        index = total - 1;
+
+    if (index < rowSize)
+    {
+        up = 0;
+        x = index + 1;
+    }
+    else
+    {
+        up = index - rowSize + 1;
+        x = rowSize;
+    }
+    down = std::max(0, total - up - rowSize);
+}
+
+void openDirectory(const char *path, int &up, int &down)
+{
+    app.layout.totalFiles = getDirectoryCount(path);
+    int dummy_x = 1;
+
+    normalizeRange((int)app.nav.fileList.size(), app.layout.rowSize, up, down, dummy_x);
 }
 
 void openCurrDirectory(const char *path)
@@ -30,39 +71,10 @@ void openCurrDirectory(const char *path)
 
 void normalizeCursor()
 {
-    int total = app.nav.fileList.size();
-
-    if (total == 0)
-    {
-        app.nav.xcurr = 1;
-        app.nav.up_screen = 0;
-        app.nav.down_screen = 0;
-        return;
-    }
-
-    int maxUp = (total > (int)app.layout.rowSize)
-                    ? total - app.layout.rowSize
-                    : 0;
-
-    if ((int)app.nav.up_screen < 0)
-        app.nav.up_screen = 0;
-    if ((int)app.nav.up_screen > maxUp)
-        app.nav.up_screen = maxUp;
-
-    int visible = total - app.nav.up_screen;
-    int maxX = min((int)app.layout.rowSize, visible);
-
-    if ((int)app.nav.xcurr < 1)
-        app.nav.xcurr = 1;
-    if ((int)app.nav.xcurr > maxX)
-        app.nav.xcurr = maxX;
-
-    app.nav.down_screen = total - app.nav.up_screen - app.layout.rowSize;
-    if (app.nav.down_screen < 0)
-        app.nav.down_screen = 0;
+    normalizeRange((int)app.nav.fileList.size(), app.layout.rowSize, app.nav.up_screen, app.nav.down_screen, app.nav.xcurr);
 }
 
-void update_position(const string &fileName)
+void update_position(const std::string &fileName)
 {
     int idx = -1;
     for (size_t i = 0; i < app.nav.fileList.size(); i++)
@@ -75,28 +87,14 @@ void update_position(const string &fileName)
     }
     if (idx != -1)
     {
-        // Calculate cursor & scrolling
-        if ((int)idx < app.layout.rowSize)
-        {
-            app.nav.up_screen = 0;
-            app.nav.xcurr = idx + 1;
-        }
-        else
-        {
-            app.nav.up_screen = idx - app.layout.rowSize + 1;
-            app.nav.xcurr = app.layout.rowSize;
-        }
-
-        app.nav.down_screen = app.nav.fileList.size() - app.nav.up_screen - app.layout.rowSize;
-        if (app.nav.down_screen < 0)
-            app.nav.down_screen = 0;
+        scrollToIndex(idx, (int)app.nav.fileList.size(), app.layout.rowSize, app.nav.up_screen, app.nav.down_screen, app.nav.xcurr);
     }
 }
 
 void toggleSelect()
 {
-    string file = app.nav.fileList[app.nav.xcurr + app.nav.up_screen - 1];
-    string fullPath = app.nav.currPath + "/" + file;
+    std::string file = app.nav.fileList[app.nav.xcurr + app.nav.up_screen - 1];
+    std::string fullPath = app.nav.currPath + "/" + file;
 
     if (app.selection.selectedFiles.count(fullPath))
         app.selection.selectedFiles.erase(fullPath);
@@ -104,27 +102,27 @@ void toggleSelect()
         app.selection.selectedFiles.insert(fullPath);
 }
 
-bool isUnderCurrentDir(const string &path)
+bool isUnderCurrentDir(const std::string &path)
 {
-    string base(app.nav.currPath);
+    std::string base(app.nav.currPath);
     if (base.back() != '/')
         base += '/';
     return path.rfind(base, 0) == 0;
 }
 
-void navigateToAbsolutePath(const string &absPath)
+void navigateToAbsolutePath(const std::string &absPath)
 {
 
     if (absPath.empty() || absPath[0] != '/') {
         openCurrDirectory(app.nav.currPath.c_str());
         renderUI();
-        pos();
+        setDefaultCursorPos();
         return;
     }
 
-    vector<string> pathParts;
-    stringstream ss(absPath);
-    string segment;
+    std::vector<std::string> pathParts;
+    std::stringstream ss(absPath);
+    std::string segment;
     
     while (getline(ss, segment, '/')) {
         if (!segment.empty()) {
@@ -132,8 +130,8 @@ void navigateToAbsolutePath(const string &absPath)
         }
     }
 
-    string newPath = "/";
-    stack<NavState> tempStack, dummyStack;
+    std::string newPath = "/";
+    std::stack<NavState> tempStack, dummyStack;
 
     for (const auto& dir : pathParts) {
         getDirectoryCount(newPath.c_str()); // Get directory contents
@@ -147,22 +145,8 @@ void navigateToAbsolutePath(const string &absPath)
                 int index=i;
                 NavState currState;
                 currState.path = newPath;
-                if ((int)app.nav.fileList.size() <= app.layout.rowSize)
-                { 
-                    currState.up_screen = 0;
-                    currState.xcurr = index; // Position at the exact index
-                }
-                else if ((int)app.nav.fileList.size() - index < app.layout.rowSize)
-                {
-                    // logMessage("hey 2");
-                    currState.up_screen = max(0, (int)(app.nav.fileList.size() - app.layout.rowSize));
-                    currState.xcurr = app.layout.rowSize - ((int)app.nav.fileList.size() - index);
-                }
-                else{
-                    // logMessage("hey 3");
-                    currState.xcurr = 1;
-                    currState.up_screen = index-1;
-                }
+                int dummy_down = 0;
+                scrollToIndex(index - 1, (int)app.nav.fileList.size(), app.layout.rowSize, currState.up_screen, dummy_down, currState.xcurr);
 
                 tempStack.push(currState);
 
@@ -177,7 +161,7 @@ void navigateToAbsolutePath(const string &absPath)
             while (!tempStack.empty()) tempStack.pop(); // Clear stack
             openCurrDirectory(app.nav.currPath.c_str());
             renderUI();
-            pos();
+            setDefaultCursorPos();
             return;
         }
     }
@@ -200,5 +184,5 @@ void navigateToAbsolutePath(const string &absPath)
     app.nav.down_screen = (int)app.nav.fileList.size() - app.layout.rowSize;
     app.nav.xcurr = 1;
     renderUI();
-    pos();
+    setDefaultCursorPos();
 }
