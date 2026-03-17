@@ -180,7 +180,10 @@ void processKey(char ch) {
             setCursorPos(1, 1);
             std::cout << "Are you sure you want to delete selected items? (y/n): " << std::flush;
             char confirm = getchar();
-            if (confirm == 'y' || confirm == 'Y') deleteSelectedItems();
+            if (confirm == 'y' || confirm == 'Y'){
+                deleteSelectedItems();
+                refreshCurrentDirectory();
+            }
             break;
         }
 
@@ -234,7 +237,6 @@ void navigate() {
 
             processKey(ch);
 
-            refreshCurrentDirectory();
             renderUI();
             setDefaultCursorPos();
         }

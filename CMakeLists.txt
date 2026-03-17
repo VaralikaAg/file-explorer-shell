@@ -25,8 +25,6 @@ target_link_libraries(refined_explorer
     pthread
 )
 
-configure_file(
-    ${CMAKE_SOURCE_DIR}/config.yml
-    ${CMAKE_BINARY_DIR}/config.yml
-    COPYONLY
+target_compile_definitions(refined_explorer PRIVATE
+    CONFIG_PATH="${CMAKE_SOURCE_DIR}/config.yml"
 )

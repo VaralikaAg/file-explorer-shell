@@ -5,6 +5,9 @@ AppState app;
 // Main method
 int main(int argc, char *argv[])
 {
+    // Alternate Screen + Mouse support
+    printf("\033[?1049h\033[?1000h");
+    fflush(stdout);
 
     loadConfig();
 

@@ -21,6 +21,7 @@ void cleanupAndExit() {
     tcsetattr(STDIN_FILENO, TCSANOW, &initialrsettings);
     resetCursorColor();
     printf("\033[0m");
+    printf("\033[?1049l\033[?1000l");
     printf("\033[2J");
     printf("\033[1;1H");
     fflush(stdout);

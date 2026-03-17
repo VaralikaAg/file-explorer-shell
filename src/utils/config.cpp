@@ -1,7 +1,7 @@
 #include "myheader.h"
 
 void loadConfig() {
-    std::ifstream file("config.yml");
+    std::ifstream file(CONFIG_PATH);
     if (!file.is_open()) {
         logMessage("config.yml not found, using default workers = 4");
         return;
