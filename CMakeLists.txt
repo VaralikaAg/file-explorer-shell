@@ -8,8 +8,8 @@ project(RefinedExplorer)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Include headers
-include_directories(include)
+# Include headers (project + LMDB from Homebrew)
+include_directories(include /opt/homebrew/include)
 
 # Collect all source files
 file(GLOB_RECURSE SOURCES
@@ -20,9 +20,10 @@ file(GLOB_RECURSE SOURCES
 # Create executable
 add_executable(refined_explorer ${SOURCES})
 
-# Link required system libraries (Linux)
+# Link required system libraries + LMDB
 target_link_libraries(refined_explorer
     pthread
+    /opt/homebrew/lib/liblmdb.dylib
 )
 
 target_compile_definitions(refined_explorer PRIVATE

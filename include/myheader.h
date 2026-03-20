@@ -29,6 +29,7 @@
 #include <chrono>
 #include <cstring>
 #include <filesystem>
+#include <lmdb.h>
 
 namespace fs = std::filesystem;
 
@@ -66,32 +67,47 @@ enum class KeyAction {
     UNKNOWN
 };
 
+/* Stored as binary value in db_files: 12 bytes total */
+struct FileRecord {
+    uint32_t file_id;
+    uint64_t mtime;      // fs modification time (seconds since epoch)
+} __attribute__((packed));
+
 class InvertedIndex
 {
-    /* FILE ID MAPPING */
-    std::unordered_map<std::string, int> fileToId;
-    std::vector<std::string> idToFile;
+    /* LMDB environment and sub-database handles */
+    MDB_env *env        = nullptr;
+    MDB_dbi  db_files;    // path(str)   → FileRecord  (unique, stores file_id + mtime)
+    MDB_dbi  db_word2id;  // word(str)   → word_id(u32) (unique)
+    MDB_dbi  db_id2word;  // word_id(u32)→ word(str)    (unique, INTEGERKEY)
+    MDB_dbi  db_inverted; // word_id(u32)→ file_id(u32) (DUPSORT | INTEGERKEY | DUPFIXED)
+    MDB_dbi  db_forward;  // file_id(u32)→ word_id(u32) (DUPSORT | INTEGERKEY | DUPFIXED)
+    MDB_dbi  db_id2path;  // file_id(u32)→ path(str)    (unique, INTEGERKEY)
 
-    /* WORD ID MAPPING */
-    std::unordered_map<std::string, int> wordToId;
-    std::vector<std::string> idToWord;
+    uint32_t next_file_id = 0;  // monotonically increasing file ID
+    uint32_t next_word_id = 0;  // monotonically increasing word ID
 
-    /* INVERTED INDEX (word_id → set<file_id>) */
-    std::unordered_map<int, std::unordered_set<int>> invertedIndex;
-
-    /* FORWARD INDEX (file_id → set<word_id>) */
-    std::unordered_map<int, std::unordered_set<int>> forwardIndex;
+    /* Helper: encode mtime from filesystem */
+    static uint64_t getMtime(const std::string &path);
 
 public:
+    /* Lifecycle */
+    void open(const std::string &dbDir);   // call once at startup
+    void close();                          // call at exit
+
+    /* Core operations (same external API) */
     void indexPath(const std::string &path);
     void indexAllOnce(std::queue<std::string> &paths);
-    void search(const std::string &word);
-    int getWordId(const std::string &word);
+    void search(const std::string &query);
+    void removePath(const std::string &path);
     void rectifyIndex(
         RectifyAction type,
-        const std::vector<std::string> &newPaths = {},
-        const std::vector<std::string> &oldPaths = {});
-    void removePath(const std::string &path);
+        const std::vector<std::string> &oldPaths = {},
+        const std::vector<std::string> &newPaths = {});
+
+    /* Differential sync support */
+    uint64_t getLastSyncTime();
+    void     setLastSyncTime(uint64_t ts);
 };
 
 struct NavigatorState
@@ -128,7 +144,7 @@ struct IndexingState
 {
     std::queue<std::string> indexQueue;
     InvertedIndex index;
-    std::vector<int> freeFileIds;
+    /* freeFileIds removed: LMDB handles storage; next_file_id is monotonic */
 
     std::atomic<bool> indexingInProgress{false};
     std::thread worker;

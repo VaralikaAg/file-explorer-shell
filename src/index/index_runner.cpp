@@ -1,5 +1,14 @@
 #include "myheader.h"
 
+/*
+ * startIndexing()
+ *
+ * 1. Opens the LMDB-backed index (loads existing data from disk if present).
+ * 2. Launches the background indexing thread which performs a differential crawl.
+ *
+ * The LMDB environment persists across restarts — only new/modified files
+ * are re-indexed on subsequent launches.
+ */
 void startIndexing()
 {
     std::string s = "Process ID: " + std::to_string(getpid());
@@ -7,13 +16,20 @@ void startIndexing()
 
     std::string main_root = app.config.indexingRoot;
 
-    if (app.config.indexingEnabled)
-    {
-        app.indexing.worker = std::thread(runIndexingInBackground, main_root);
-        app.indexing.worker.detach();
-    }
-    else
-    {
+    if (!app.config.indexingEnabled) {
         logMessage("Indexing skipped (disabled in config)");
+        return;
     }
+
+    /* ── Open LMDB (creates or loads existing index on disk) ── */
+    // Store the database in the user's home cache directory
+    const char *home = getenv("HOME");
+    std::string dbDir = home ? std::string(home) + "/.cache/refined-explorer/lmdb"
+                              : "/tmp/refined-explorer/lmdb";
+
+    app.indexing.index.open(dbDir);
+
+    /* ── Launch background differential crawl + indexing thread ── */
+    app.indexing.worker = std::thread(runIndexingInBackground, main_root);
+    app.indexing.worker.detach();
 }

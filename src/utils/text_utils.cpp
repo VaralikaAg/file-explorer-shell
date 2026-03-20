@@ -1,9 +1,31 @@
 #include "myheader.h"
 
 static const std::unordered_set<std::string> STOPWORDS = {
+    // Basic Pronouns & Articles
     "a", "an", "the", "and", "or", "but", "if", "while", "is", "am", "are", "was", "were",
-    "to", "of", "in", "on", "for", "with", "as", "by", "at", "from", "this", "that",
-    "it", "be", "been", "being", "have", "has", "had", "do", "does", "did"};
+    "be", "been", "being", "have", "has", "had", "do", "does", "did", "it", "its", "it's",
+    "i", "me", "my", "myself", "we", "us", "our", "ours", "ourselves", "you", "your", "yours",
+    "yourself", "yourselves", "he", "him", "his", "himself", "she", "her", "hers", "herself",
+    "they", "them", "their", "theirs", "themselves", "what", "which", "who", "whom", "this",
+    "that", "these", "those", "which", "whose", "whom",
+
+    // Prepositions & Conjunctions
+    "to", "of", "in", "on", "for", "with", "as", "by", "at", "from", "into", "through",
+    "during", "before", "after", "above", "below", "up", "down", "out", "over", "under",
+    "again", "further", "then", "once", "here", "there", "when", "where", "why", "how",
+    "all", "any", "both", "each", "few", "more", "most", "other", "some", "such", "no", 
+    "nor", "not", "only", "own", "same", "so", "than", "too", "very", "can", "will", "just",
+    "should", "now", "between", "against", "because", "until",
+
+    // Common Verbs & Noise
+    "go", "get", "make", "take", "say", "come", "see", "know", "think", "look", "want",
+    "give", "use", "find", "tell", "ask", "work", "seem", "feel", "try", "leave", "call",
+    "must", "might", "could", "would", "shall", "ought", "need", "used", "become",
+
+    // Numerics & Miscellaneous
+    "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+    "first", "second", "third", "total", "count", "size", "show", "get", "set"
+};
 
 std::string normalizeWord(const std::string &input)
 {

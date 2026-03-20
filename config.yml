@@ -1,4 +1,4 @@
 performance:
   workers: 5
-  indexing: false
-  indexing_root: /Users/varalikaagarwal/Developer/cpp_projects/refined-explorer
+  indexing: true
+  indexing_root: /Users/varalikaagarwal/Developer/ML_Projects
