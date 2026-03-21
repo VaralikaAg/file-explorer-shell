@@ -1,27 +1,40 @@
 /*
- * inverted_index.cpp  —  LMDB-backed persistent inverted index
+ * inverted_index.cpp  —  LMDB-backed persistent inverted index (Inode-Only)
  *
  * Databases inside the single MDB_env:
- *   db_files    : path(str)    -> FileRecord{file_id, mtime}  (unique keys)
- *   db_inverted : word(str)    -> file_id(uint32_t)           (DUPSORT |
- * DUPFIXED) db_forward  : file_id(u32) -> word(str)                   (DUPSORT
- * | INTEGERKEY) db_id2path  : file_id(u32) -> path(str) (INTEGERKEY, unique)
+ *   db_files    : ino(u64)     -> mtime(u64)       (unique, INTEGERKEY)
+ *   db_word2id  : word(str)    -> word_id(u32)     (unique)
+ *   db_id2word  : word_id(u32) -> word(str)        (unique, INTEGERKEY)
+ *   db_inverted : word_id(u32) -> ino(u64)         (DUPSORT | INTEGERKEY |
+ * DUPFIXED) db_forward  : ino(u64)     -> word_id(u32)     (DUPSORT |
+ * INTEGERKEY | DUPFIXED)
  *
  * A special sentinel key "__meta_last_sync__" in db_files stores the
  * last global sync timestamp (uint64_t) for differential crawl support.
+ * The key is constructed as a 0-inode or special bit-pattern to avoid
+ * collision.
  */
 
 #include "myheader.h"
+#include <cstdint>
+#include <filesystem>
+#include <lmdb.h>
 
-/* ─────────────────────────────────────────────────
-   INTERNAL HELPERS
-   ───────────────────────────────────────────────── */
-
-// Abort the process on unrecoverable LMDB errors
 static void lmdb_check(int rc, const char *op) {
   if (rc != MDB_SUCCESS && rc != MDB_NOTFOUND) {
     logMessage(std::string("LMDB error in ") + op + ": " + mdb_strerror(rc));
-    // don't abort the whole app on individual put/get errors — just log
+  }
+}
+
+void InvertedIndex::getStat(const std::string &path, uint64_t &ino,
+                            uint64_t &dev) {
+  struct stat st;
+  if (::stat(path.c_str(), &st) == 0) {
+    ino = st.st_ino;
+    dev = st.st_dev;
+  } else {
+    ino = 0;
+    dev = 0;
   }
 }
 
@@ -47,10 +60,10 @@ void InvertedIndex::open(const std::string &dbDir) {
   rc = mdb_env_set_mapsize(env, (size_t)2 * 1024 * 1024 * 1024);
   lmdb_check(rc, "mdb_env_set_mapsize");
 
-  rc = mdb_env_set_maxdbs(env, 6);
+  rc = mdb_env_set_maxdbs(env, 5);
   lmdb_check(rc, "mdb_env_set_maxdbs");
 
-  /* 3. Open (or create) the backing directory + file */
+  /* 3. Open backing directory */
   fs::create_directories(dbDir);
   rc = mdb_env_open(env, dbDir.c_str(), 0, 0664);
   if (rc != MDB_SUCCESS) {
@@ -60,61 +73,50 @@ void InvertedIndex::open(const std::string &dbDir) {
     return;
   }
 
-  /* 4. Open all sub-databases inside a write transaction */
+  /* 4. Open sub-databases inside a write transaction */
   MDB_txn *txn;
-  rc = mdb_txn_begin(env, nullptr, 0, &txn);
-  lmdb_check(rc, "open/mdb_txn_begin");
+  mdb_txn_begin(env, nullptr, 0, &txn);
+  rc = mdb_dbi_open(txn, "files", MDB_CREATE | MDB_INTEGERKEY, &db_files);
+  rc |= mdb_dbi_open(txn, "word2id", MDB_CREATE, &db_word2id);
+  rc |= mdb_dbi_open(txn, "id2word", MDB_CREATE | MDB_INTEGERKEY, &db_id2word);
+  rc |= mdb_dbi_open(txn, "inverted",
+                     MDB_CREATE | MDB_DUPSORT | MDB_INTEGERKEY | MDB_DUPFIXED,
+                     &db_inverted);
+  rc |= mdb_dbi_open(txn, "forward",
+                     MDB_CREATE | MDB_DUPSORT | MDB_INTEGERKEY | MDB_DUPFIXED,
+                     &db_forward);
 
-  rc = mdb_dbi_open(txn, "files", MDB_CREATE, &db_files);
-  lmdb_check(rc, "open/db_files");
+  if (rc != MDB_SUCCESS) {
+    lmdb_check(rc, "open/dbi_open");
+    mdb_txn_abort(txn);
+    return;
+  }
+  mdb_txn_commit(txn);
 
-  rc = mdb_dbi_open(txn, "word2id", MDB_CREATE, &db_word2id);
-  lmdb_check(rc, "open/db_word2id");
-
-  rc = mdb_dbi_open(txn, "id2word", MDB_CREATE | MDB_INTEGERKEY, &db_id2word);
-  lmdb_check(rc, "open/db_id2word");
-
-  rc = mdb_dbi_open(txn, "inverted",
-                    MDB_CREATE | MDB_DUPSORT | MDB_INTEGERKEY | MDB_DUPFIXED,
-                    &db_inverted);
-  lmdb_check(rc, "open/db_inverted");
-
-  rc = mdb_dbi_open(txn, "forward",
-                    MDB_CREATE | MDB_DUPSORT | MDB_INTEGERKEY | MDB_DUPFIXED,
-                    &db_forward);
-  lmdb_check(rc, "open/db_forward");
-
-  rc = mdb_dbi_open(txn, "id2path", MDB_CREATE | MDB_INTEGERKEY, &db_id2path);
-  lmdb_check(rc, "open/db_id2path");
-
-  rc = mdb_txn_commit(txn);
-  lmdb_check(rc, "open/commit");
-
-  /* 5. Initialize ID counters by finding current maximums */
+  /* 5. Initialize WordID counter and rootDev */
   MDB_txn *rtxn;
   mdb_txn_begin(env, nullptr, MDB_RDONLY, &rtxn);
-
   MDB_cursor *cur;
-  // Max FileID
-  if (mdb_cursor_open(rtxn, db_id2path, &cur) == MDB_SUCCESS) {
-    MDB_val k, v;
-    if (mdb_cursor_get(cur, &k, &v, MDB_LAST) == MDB_SUCCESS) {
-      next_file_id = *(uint32_t *)k.mv_data + 1;
-    }
-    mdb_cursor_close(cur);
-  }
-  // Max WordID
   if (mdb_cursor_open(rtxn, db_id2word, &cur) == MDB_SUCCESS) {
     MDB_val k, v;
     if (mdb_cursor_get(cur, &k, &v, MDB_LAST) == MDB_SUCCESS) {
-      next_word_id = *(uint32_t *)k.mv_data + 1;
+      if (k.mv_size == sizeof(uint32_t)) {
+        next_word_id = *(uint32_t *)k.mv_data + 1;
+      }
     }
     mdb_cursor_close(cur);
   }
   mdb_txn_abort(rtxn);
 
-  logMessage("LMDB index opened. next_file_id=" + std::to_string(next_file_id) +
+  // Capture root volume device for /.vol/ path resolution
+  uint64_t dummy;
+  getStat(app.config.indexingRoot, dummy, rootDev);
+
+  logMessage("LMDB Inode-Index opened. RootDev=" + std::to_string(rootDev) +
              ", next_word_id=" + std::to_string(next_word_id));
+
+  // User request: print all words once
+  //   dumpWords();
 }
 
 void InvertedIndex::close() {
@@ -128,24 +130,22 @@ void InvertedIndex::close() {
    DIFFERENTIAL SYNC SUPPORT
    ───────────────────────────────────────────────── */
 
-static const char *META_SYNC_KEY = "__meta_last_sync__";
+static const uint64_t META_INO =
+    0; // Use Inode 0 for metadata (collisions impossible)
 
 uint64_t InvertedIndex::getLastSyncTime() {
   if (!env)
     return 0;
-
   MDB_txn *txn;
-  mdb_txn_begin(env, nullptr, MDB_RDONLY, &txn);
+  if (mdb_txn_begin(env, nullptr, MDB_RDONLY, &txn) != MDB_SUCCESS)
+    return 0;
 
-  MDB_val k = {strlen(META_SYNC_KEY), (void *)META_SYNC_KEY};
+  MDB_val k = {sizeof(uint64_t), (void *)&META_INO};
   MDB_val v;
   uint64_t ts = 0;
-
-  if (mdb_get(txn, db_files, &k, &v) == MDB_SUCCESS &&
-      v.mv_size == sizeof(uint64_t)) {
+  if (mdb_get(txn, db_files, &k, &v) == MDB_SUCCESS) {
     ts = *(uint64_t *)v.mv_data;
   }
-
   mdb_txn_abort(txn);
   return ts;
 }
@@ -153,14 +153,13 @@ uint64_t InvertedIndex::getLastSyncTime() {
 void InvertedIndex::setLastSyncTime(uint64_t ts) {
   if (!env)
     return;
-
   MDB_txn *txn;
-  mdb_txn_begin(env, nullptr, 0, &txn);
+  if (mdb_txn_begin(env, nullptr, 0, &txn) != MDB_SUCCESS)
+    return;
 
-  MDB_val k = {strlen(META_SYNC_KEY), (void *)META_SYNC_KEY};
+  MDB_val k = {sizeof(uint64_t), (void *)&META_INO};
   MDB_val v = {sizeof(uint64_t), &ts};
   mdb_put(txn, db_files, &k, &v, 0);
-
   mdb_txn_commit(txn);
 }
 
@@ -172,93 +171,98 @@ void InvertedIndex::indexPath(const std::string &path) {
   if (!env)
     return;
 
-  MDB_txn *txn;
-  int rc = mdb_txn_begin(env, nullptr, 0, &txn);
-  if (rc != MDB_SUCCESS)
+  uint64_t ino, dev;
+  getStat(path, ino, dev);
+  if (ino == 0)
     return;
 
-  /* ── 1. Get or create FileRecord for this path ── */
-  MDB_val pk = {path.size(), (void *)path.data()};
-  MDB_val pv;
-  FileRecord rec;
-  bool isNew = (mdb_get(txn, db_files, &pk, &pv) == MDB_NOTFOUND);
+  MDB_txn *txn;
+  if (mdb_txn_begin(env, nullptr, 0, &txn) != MDB_SUCCESS)
+    return;
 
-  if (isNew) {
-    rec.file_id = next_file_id++;
-    rec.mtime = getMtime(path);
-  } else {
-    rec = *(FileRecord *)pv.mv_data;
-    rec.mtime = getMtime(path); // refresh mtime
-  }
+  uint64_t mt = getMtime(path);
+  MDB_val kIno = {sizeof(uint64_t), &ino};
+  MDB_val vMt = {sizeof(uint64_t), &mt};
 
-  /* ── 2. Store FileRecord (path → record) ── */
-  MDB_val recVal = {sizeof(FileRecord), &rec};
-  mdb_put(txn, db_files, &pk, &recVal, 0);
+  // 1. Store inode -> mtime
+  mdb_put(txn, db_files, &kIno, &vMt, 0);
 
-  /* ── 3. Store reverse lookup (file_id → path) ── */
-  MDB_val idKey = {sizeof(uint32_t), &rec.file_id};
-  MDB_val pathVal = {path.size(), (void *)path.data()};
-  mdb_put(txn, db_id2path, &idKey, &pathVal, 0);
-
-  /* ── 4. Helper lambda: resolve word to ID (get or create) ── */
+  // 2. Helper for WordID
   auto getOrCreateWordId = [&](const std::string &word) -> uint32_t {
     if (word.empty())
       return 0;
-
     MDB_val wk = {word.size(), (void *)word.data()};
     MDB_val wv;
     if (mdb_get(txn, db_word2id, &wk, &wv) == MDB_SUCCESS) {
       return *(uint32_t *)wv.mv_data;
     }
-
-    // New word: assign next_word_id
     uint32_t wid = next_word_id++;
-    MDB_val idKey = {sizeof(uint32_t), &wid};
-    MDB_val idVal = {sizeof(uint32_t), &wid}; // for word2id value
-
-    mdb_put(txn, db_word2id, &wk, &idVal, 0);
-    mdb_put(txn, db_id2word, &idKey, &wk, 0);
+    MDB_val iK = {sizeof(uint32_t), &wid};
+    MDB_val iV = {sizeof(uint32_t), &wid};
+    mdb_put(txn, db_word2id, &wk, &iV, 0);
+    mdb_put(txn, db_id2word, &iK, &wk, 0);
     return wid;
   };
 
-  /* ── 5. Helper lambda: insert relationship into both indices ── */
-  auto insertRelationship = [&](const std::string &word) {
+  // 3. Relationships
+  auto insertRel = [&](const std::string &word) {
     uint32_t wid = getOrCreateWordId(word);
     if (wid == 0)
       return;
 
-    // db_inverted: word_id → file_id
     MDB_val wk = {sizeof(uint32_t), &wid};
-    MDB_val wv = {sizeof(uint32_t), &rec.file_id};
-    mdb_put(txn, db_inverted, &wk, &wv, MDB_NODUPDATA);
+    MDB_val idV = {sizeof(uint64_t), &ino}; // word_id -> ino
+    int r = mdb_put(txn, db_inverted, &wk, &idV, MDB_NODUPDATA);
 
-    // db_forward: file_id → word_id
-    MDB_val fk = {sizeof(uint32_t), &rec.file_id};
-    MDB_val fv = {sizeof(uint32_t), &wid};
-    mdb_put(txn, db_forward, &fk, &fv, MDB_NODUPDATA);
+    MDB_val fk = {sizeof(uint64_t), &ino};
+    MDB_val fv = {sizeof(uint32_t), &wid}; // ino -> word_id
+    r = mdb_put(txn, db_forward, &fk, &fv, MDB_NODUPDATA);
   };
 
-  /* ── 6. Index the filename/dirname itself ── */
+  // Function to tokenize and index a string based on whitespace delimiters
+  auto tokenizeAndIndex = [&](const std::string &str) {
+    std::stringstream ss(str);
+    std::string word;
+    while (ss >> word) {
+      bool valid = true;
+      for (char ch : word) {
+        unsigned char uc = static_cast<unsigned char>(ch);
+        // Only allow alnum + [@#_-$&]. Any other character makes the ENTIRE
+        // word invalid.
+        if (!(std::isalnum(uc) || uc == '@' || uc == '#' || uc == '_' ||
+              uc == '-' || uc == '$' || uc == '&')) {
+          valid = false;
+          break;
+        }
+      }
+      if (valid && !word.empty()) {
+        std::string clean = normalizeWord(word);
+        if (!clean.empty() && clean.size() < 128) {
+          insertRel(clean);
+        }
+      }
+    }
+  };
+
+  // 1. Index filename
   size_t pos = path.find_last_of("/\\");
   std::string name = (pos == std::string::npos) ? path : path.substr(pos + 1);
-  insertRelationship(normalizeWord(name));
+  tokenizeAndIndex(name);
 
-  /* ── 7. If regular file: index its content ── */
-  if (!isDirectory(path) && isRegularFile(path)) {
-    std::ifstream fp(path);
-    if (fp) {
-      std::string line, word;
-      while (getline(fp, line)) {
-        std::stringstream ss(line);
-        while (ss >> word) {
-          insertRelationship(normalizeWord(word));
+  // 2. Index content (only text files, non-hidden)
+  if (!isDirectory(path) && isRegularFile(path) && !isBinaryFile(path)) {
+    if (name.empty() || name[0] != '.') {
+      std::ifstream fp(path);
+      if (fp) {
+        std::string line;
+        while (getline(fp, line)) {
+          tokenizeAndIndex(line);
         }
       }
     }
   }
 
-  rc = mdb_txn_commit(txn);
-  lmdb_check(rc, "indexPath/commit");
+  mdb_txn_commit(txn);
 }
 
 /* ─────────────────────────────────────────────────
@@ -275,46 +279,33 @@ void InvertedIndex::indexAllOnce(std::queue<std::string> &paths) {
 
 /* ─────────────────────────────────────────────────
    CORE: removePath
-   Uses the Forward Index to efficiently find all words for this file,
-   then removes each from the Inverted Index — O(W log N) total.
    ───────────────────────────────────────────────── */
 
 void InvertedIndex::removePath(const std::string &path) {
   if (!env)
     return;
-
-  MDB_txn *txn;
-  int rc = mdb_txn_begin(env, nullptr, 0, &txn);
-  if (rc != MDB_SUCCESS)
+  uint64_t ino, dev;
+  getStat(path, ino, dev);
+  if (ino == 0)
     return;
 
-  /* ── 1. Look up FileRecord ── */
-  MDB_val pk = {path.size(), (void *)path.data()};
-  MDB_val pv;
-  if (mdb_get(txn, db_files, &pk, &pv) == MDB_NOTFOUND) {
-    mdb_txn_abort(txn);
-    return; // not indexed, nothing to do
-  }
-  FileRecord rec = *(FileRecord *)pv.mv_data;
+  MDB_txn *txn;
+  if (mdb_txn_begin(env, nullptr, 0, &txn) != MDB_SUCCESS)
+    return;
 
-  /* ── 2. Iterate Forward Index: for each word_id this file had ── */
   MDB_cursor *fwdCur;
   mdb_cursor_open(txn, db_forward, &fwdCur);
-
-  MDB_val fk = {sizeof(uint32_t), &rec.file_id};
+  MDB_val fk = {sizeof(uint64_t), &ino};
   MDB_val fv;
 
   if (mdb_cursor_get(fwdCur, &fk, &fv, MDB_SET) == MDB_SUCCESS) {
     do {
-      /* Remove (word_id → file_id) from db_inverted */
       uint32_t wid = *(uint32_t *)fv.mv_data;
       MDB_val wk = {sizeof(uint32_t), &wid};
-      MDB_val wv = {sizeof(uint32_t), &rec.file_id};
-      mdb_del(txn, db_inverted, &wk, &wv);
-
+      MDB_val idV = {sizeof(uint64_t), &ino};
+      mdb_del(txn, db_inverted, &wk, &idV);
     } while (mdb_cursor_get(fwdCur, &fk, &fv, MDB_NEXT_DUP) == MDB_SUCCESS);
 
-    /* ── 3. Delete all forward index entries for this file ── */
     mdb_cursor_get(fwdCur, &fk, &fv, MDB_SET);
     int delRc;
     do {
@@ -322,18 +313,11 @@ void InvertedIndex::removePath(const std::string &path) {
     } while (delRc == MDB_SUCCESS &&
              mdb_cursor_get(fwdCur, &fk, &fv, MDB_GET_CURRENT) == MDB_SUCCESS);
   }
-
   mdb_cursor_close(fwdCur);
 
-  /* ── 4. Delete path → record entry ── */
-  mdb_del(txn, db_files, &pk, nullptr);
-
-  /* ── 5. Delete file_id → path reverse entry ── */
-  MDB_val idKey = {sizeof(uint32_t), &rec.file_id};
-  mdb_del(txn, db_id2path, &idKey, nullptr);
-
-  rc = mdb_txn_commit(txn);
-  lmdb_check(rc, "removePath/commit");
+  MDB_val kIno = {sizeof(uint64_t), &ino};
+  mdb_del(txn, db_files, &kIno, nullptr);
+  mdb_txn_commit(txn);
 }
 
 /* ─────────────────────────────────────────────────
@@ -345,7 +329,6 @@ void InvertedIndex::search(const std::string &query) {
   if (!env)
     return;
 
-  /* ── 1. Tokenize + normalize query ── */
   std::vector<std::string> tokens;
   std::stringstream ss(query);
   std::string token;
@@ -357,69 +340,55 @@ void InvertedIndex::search(const std::string &query) {
   if (tokens.empty())
     return;
 
-  /* ── 2. Read-only transaction (non-blocking: MVCC allows concurrent searches)
-   * ── */
   MDB_txn *txn;
-  int rc = mdb_txn_begin(env, nullptr, MDB_RDONLY, &txn);
-  if (rc != MDB_SUCCESS)
+  if (mdb_txn_begin(env, nullptr, MDB_RDONLY, &txn) != MDB_SUCCESS)
     return;
 
-  /* ── 3. For each token, collect matching FileIDs into a counter ── */
-  std::unordered_map<uint32_t, int> fileCounter;
-
+  std::unordered_map<uint64_t, int> fileCounter;
   for (const auto &word : tokens) {
-    /* Resolve word to word_id */
     MDB_val wk = {word.size(), (void *)word.data()};
     MDB_val wv;
     if (mdb_get(txn, db_word2id, &wk, &wv) != MDB_SUCCESS) {
-      // Word not in dictionary -> AND semantics: no results possible
       mdb_txn_abort(txn);
       return;
     }
     uint32_t wid = *(uint32_t *)wv.mv_data;
 
-    /* Query inverted index with word_id */
     MDB_cursor *cur;
     mdb_cursor_open(txn, db_inverted, &cur);
-
-    MDB_val idKey = {sizeof(uint32_t), &wid};
-    MDB_val idVal;
-
-    if (mdb_cursor_get(cur, &idKey, &idVal, MDB_SET) != MDB_SUCCESS) {
-      // No file contains this word_id
-      mdb_cursor_close(cur);
-      mdb_txn_abort(txn);
-      return;
+    MDB_val iK = {sizeof(uint32_t), &wid};
+    MDB_val iV;
+    if (mdb_cursor_get(cur, &iK, &iV, MDB_SET) == MDB_SUCCESS) {
+      do {
+        uint64_t ino = *(uint64_t *)iV.mv_data;
+        fileCounter[ino]++;
+      } while (mdb_cursor_get(cur, &iK, &iV, MDB_NEXT_DUP) == MDB_SUCCESS);
     }
-
-    // Iterate all duplicate FileIDs for this word_id
-    do {
-      uint32_t fid = *(uint32_t *)idVal.mv_data;
-      fileCounter[fid]++;
-    } while (mdb_cursor_get(cur, &idKey, &idVal, MDB_NEXT_DUP) == MDB_SUCCESS);
-
     mdb_cursor_close(cur);
   }
+  mdb_txn_abort(txn);
 
-  /* ── 4. Intersection: keep files matching ALL tokens ── */
   int required = (int)tokens.size();
-
-  for (auto &[fid, cnt] : fileCounter) {
+  for (auto &[ino, cnt] : fileCounter) {
     if (cnt != required)
       continue;
 
-    // Reverse-lookup: file_id → path  (O(log N) via db_id2path)
-    MDB_val idKey = {sizeof(uint32_t), (void *)&fid};
-    MDB_val idVal;
-    if (mdb_get(txn, db_id2path, &idKey, &idVal) == MDB_SUCCESS) {
-      std::string foundPath((char *)idVal.mv_data, idVal.mv_size);
-      if (!foundPath.empty())
-        app.search.foundPaths.push_back(std::move(foundPath));
+    // Resolve path via volfs
+    std::string volPath =
+        "/.vol/" + std::to_string(rootDev) + "/" + std::to_string(ino);
+    char pathBuf[4096];
+    int fd = ::open(volPath.c_str(), O_RDONLY);
+    if (fd >= 0) {
+      if (::fcntl(fd, F_GETPATH, pathBuf) != -1) {
+        std::string resolved(pathBuf);
+        // Filter: ensure it starts with indexingRoot
+        if (resolved.find(app.config.indexingRoot) == 0) {
+          app.search.foundPaths.push_back(std::move(resolved));
+        }
+      }
+      ::close(fd);
     }
   }
-
-  /* Read-only txn: abort is correct (no writes to flush) */
-  mdb_txn_abort(txn);
 }
 
 /* ─────────────────────────────────────────────────
@@ -429,25 +398,30 @@ void InvertedIndex::search(const std::string &query) {
 void InvertedIndex::rectifyIndex(RectifyAction action,
                                  const std::vector<std::string> &oldPaths,
                                  const std::vector<std::string> &newPaths) {
-  switch (action) {
+  // Logic suspended as per user request to speed up operations.
+  // Inode-indexing will be refreshed during the background crawl.
+}
 
-  case RectifyAction::CREATE:
-  case RectifyAction::COPY:
-    for (const auto &p : newPaths)
-      indexPath(p);
-    break;
+void InvertedIndex::dumpWords() {
+  if (!env)
+    return;
+  MDB_txn *txn;
+  if (mdb_txn_begin(env, nullptr, MDB_RDONLY, &txn) != MDB_SUCCESS)
+    return;
 
-  case RectifyAction::RENAME:
-    // 1-to-1: oldPaths[i] → newPaths[i]
-    for (size_t i = 0; i < oldPaths.size() && i < newPaths.size(); i++) {
-      removePath(oldPaths[i]);
-      indexPath(newPaths[i]);
+  MDB_cursor *cur;
+  if (mdb_cursor_open(txn, db_id2word, &cur) == MDB_SUCCESS) {
+    MDB_val k, v;
+    logMessage("--- [DEBUG] INDEXED WORDS START ---");
+    while (mdb_cursor_get(cur, &k, &v, MDB_NEXT) == MDB_SUCCESS) {
+      if (v.mv_size > 0) {
+        std::string word((char *)v.mv_data, v.mv_size);
+        logMessage("WordID " + std::to_string(*(uint32_t *)k.mv_data) + ": " +
+                   word);
+      }
     }
-    break;
-
-  case RectifyAction::DELETE:
-    for (const auto &p : oldPaths)
-      removePath(p);
-    break;
+    logMessage("--- [DEBUG] INDEXED WORDS END ---");
+    mdb_cursor_close(cur);
   }
+  mdb_txn_abort(txn);
 }

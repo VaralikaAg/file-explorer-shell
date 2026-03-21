@@ -29,24 +29,27 @@ static const std::unordered_set<std::string> STOPWORDS = {
 
 std::string normalizeWord(const std::string &input)
 {
+    if (input.empty()) return "";
+
     std::string out;
     out.reserve(input.size());
 
-    // lowercase + strip punctuation
+    // lowercase + allow alphanumeric and specific special chars (@#_-$&)
     for (char c : input)
     {
-        if (isalnum(static_cast<unsigned char>(c)))
+        unsigned char uc = static_cast<unsigned char>(c);
+        if (std::isalnum(uc))
         {
-            out += tolower(static_cast<unsigned char>(c));
+            out += static_cast<char>(std::tolower(uc));
+        }
+        else if (uc == '@' || uc == '#' || uc == '_' || uc == '-' || uc == '$' || uc == '&')
+        {
+            out += static_cast<char>(uc);
         }
     }
 
-    // remove empty
-    if (out.empty())
-        return "";
-
-    // remove stopwords
-    if (STOPWORDS.count(out))
+    // remove empty or stopwords
+    if (out.empty() || STOPWORDS.count(out))
         return "";
 
     return out;

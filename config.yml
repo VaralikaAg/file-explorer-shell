@@ -1,4 +1,4 @@
 performance:
   workers: 5
   indexing: true
-  indexing_root: /Users/varalikaagarwal/Developer/ML_Projects
+  indexing_root: /Users/varalikaagarwal/Developer

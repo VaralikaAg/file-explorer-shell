@@ -67,27 +67,21 @@ enum class KeyAction {
     UNKNOWN
 };
 
-/* Stored as binary value in db_files: 12 bytes total */
-struct FileRecord {
-    uint32_t file_id;
-    uint64_t mtime;      // fs modification time (seconds since epoch)
-} __attribute__((packed));
-
 class InvertedIndex
 {
     /* LMDB environment and sub-database handles */
     MDB_env *env        = nullptr;
-    MDB_dbi  db_files;    // path(str)   → FileRecord  (unique, stores file_id + mtime)
-    MDB_dbi  db_word2id;  // word(str)   → word_id(u32) (unique)
-    MDB_dbi  db_id2word;  // word_id(u32)→ word(str)    (unique, INTEGERKEY)
-    MDB_dbi  db_inverted; // word_id(u32)→ file_id(u32) (DUPSORT | INTEGERKEY | DUPFIXED)
-    MDB_dbi  db_forward;  // file_id(u32)→ word_id(u32) (DUPSORT | INTEGERKEY | DUPFIXED)
-    MDB_dbi  db_id2path;  // file_id(u32)→ path(str)    (unique, INTEGERKEY)
+    MDB_dbi  db_files;    // ino(u64)     → mtime(u64)      (unique, INTEGERKEY)
+    MDB_dbi  db_word2id;  // word(str)    → word_id(u32)    (unique)
+    MDB_dbi  db_id2word;  // word_id(u32) → word(str)       (unique, INTEGERKEY)
+    MDB_dbi  db_inverted; // word_id(u32) → ino(u64)        (DUPSORT | INTEGERKEY | DUPFIXED)
+    MDB_dbi  db_forward;  // ino(u64)     → word_id(u32)    (DUPSORT | INTEGERKEY | DUPFIXED)
 
-    uint32_t next_file_id = 0;  // monotonically increasing file ID
     uint32_t next_word_id = 0;  // monotonically increasing word ID
+    uint64_t rootDev      = 0;  // device ID of the indexing root (for /.vol/ resolution)
 
-    /* Helper: encode mtime from filesystem */
+    /* Helper: resolve path to inode/dev */
+    static void getStat(const std::string &path, uint64_t &ino, uint64_t &dev);
     static uint64_t getMtime(const std::string &path);
 
 public:
@@ -108,6 +102,9 @@ public:
     /* Differential sync support */
     uint64_t getLastSyncTime();
     void     setLastSyncTime(uint64_t ts);
+
+    /* Debug: print full word dictionary to logs */
+    void     dumpWords();
 };
 
 struct NavigatorState
