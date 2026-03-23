@@ -1,8 +1,4 @@
 cmake_minimum_required(VERSION 3.10)
-
-set(CMAKE_C_COMPILER /opt/homebrew/bin/gcc-15)
-set(CMAKE_CXX_COMPILER /opt/homebrew/bin/g++-15)
-
 project(RefinedExplorer)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -25,6 +21,10 @@ target_link_libraries(refined_explorer
     pthread
     /opt/homebrew/lib/liblmdb.dylib
 )
+
+if(APPLE)
+    target_link_libraries(refined_explorer "-framework CoreServices")
+endif()
 
 target_compile_definitions(refined_explorer PRIVATE
     CONFIG_PATH="${CMAKE_SOURCE_DIR}/config.yml"

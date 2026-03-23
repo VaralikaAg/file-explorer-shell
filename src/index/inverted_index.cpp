@@ -167,7 +167,7 @@ void InvertedIndex::setLastSyncTime(uint64_t ts) {
    CORE: indexPath
    ───────────────────────────────────────────────── */
 
-void InvertedIndex::indexPath(const std::string &path) {
+void InvertedIndex::indexPath(const std::string &path, MDB_txn *externalTxn) {
   if (!env)
     return;
 
@@ -176,15 +176,17 @@ void InvertedIndex::indexPath(const std::string &path) {
   if (ino == 0)
     return;
 
-  MDB_txn *txn;
-  if (mdb_txn_begin(env, nullptr, 0, &txn) != MDB_SUCCESS)
-    return;
+  MDB_txn *txn = externalTxn;
+  bool localTxn = false;
+  if (!txn) {
+    if (mdb_txn_begin(env, nullptr, 0, &txn) != MDB_SUCCESS)
+      return;
+    localTxn = true;
+  }
 
   uint64_t mt = getMtime(path);
   MDB_val kIno = {sizeof(uint64_t), &ino};
   MDB_val vMt = {sizeof(uint64_t), &mt};
-
-  // 1. Store inode -> mtime
   mdb_put(txn, db_files, &kIno, &vMt, 0);
 
   // 2. Helper for WordID
@@ -196,11 +198,11 @@ void InvertedIndex::indexPath(const std::string &path) {
     if (mdb_get(txn, db_word2id, &wk, &wv) == MDB_SUCCESS) {
       return *(uint32_t *)wv.mv_data;
     }
-    uint32_t wid = next_word_id++;
-    MDB_val iK = {sizeof(uint32_t), &wid};
-    MDB_val iV = {sizeof(uint32_t), &wid};
-    mdb_put(txn, db_word2id, &wk, &iV, 0);
-    mdb_put(txn, db_id2word, &iK, &wk, 0);
+    // New word
+    uint32_t wid = ++next_word_id;
+    MDB_val idV = {sizeof(uint32_t), &wid};
+    mdb_put(txn, db_word2id, &wk, &idV, 0);
+    mdb_put(txn, db_id2word, &idV, &wk, 0);
     return wid;
   };
 
@@ -262,26 +264,15 @@ void InvertedIndex::indexPath(const std::string &path) {
     }
   }
 
-  mdb_txn_commit(txn);
-}
-
-/* ─────────────────────────────────────────────────
-   CORE: indexAllOnce (batch from queue)
-   ───────────────────────────────────────────────── */
-
-void InvertedIndex::indexAllOnce(std::queue<std::string> &paths) {
-  while (!paths.empty()) {
-    std::string path = paths.front();
-    paths.pop();
-    indexPath(path);
-  }
+  if (localTxn)
+    mdb_txn_commit(txn);
 }
 
 /* ─────────────────────────────────────────────────
    CORE: removePath
    ───────────────────────────────────────────────── */
 
-void InvertedIndex::removePath(const std::string &path) {
+void InvertedIndex::removePath(const std::string &path, MDB_txn *externalTxn) {
   if (!env)
     return;
   uint64_t ino, dev;
@@ -289,9 +280,13 @@ void InvertedIndex::removePath(const std::string &path) {
   if (ino == 0)
     return;
 
-  MDB_txn *txn;
-  if (mdb_txn_begin(env, nullptr, 0, &txn) != MDB_SUCCESS)
-    return;
+  MDB_txn *txn = externalTxn;
+  bool localTxn = false;
+  if (!txn) {
+    if (mdb_txn_begin(env, nullptr, 0, &txn) != MDB_SUCCESS)
+      return;
+    localTxn = true;
+  }
 
   MDB_cursor *fwdCur;
   mdb_cursor_open(txn, db_forward, &fwdCur);
@@ -317,7 +312,9 @@ void InvertedIndex::removePath(const std::string &path) {
 
   MDB_val kIno = {sizeof(uint64_t), &ino};
   mdb_del(txn, db_files, &kIno, nullptr);
-  mdb_txn_commit(txn);
+  
+  if (localTxn)
+    mdb_txn_commit(txn);
 }
 
 /* ─────────────────────────────────────────────────

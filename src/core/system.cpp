@@ -44,9 +44,7 @@ void runIndexingInBackground(const std::string root) {
     logMessage(lastSync == 0 ? "First-time indexing (full crawl)..."
                              : "Differential crawl since ts=" + std::to_string(lastSync));
 
-    /* ─── Track every path we see during this crawl (for zombie cleanup) ─── */
     std::unordered_set<std::string> visited;
-
     static const std::unordered_set<std::string> ignoreSet = {
         ".git", ".svn", ".hg", "node_modules", "build", "dist", ".env", "env", "venv", ".venv", "bin", "obj", ".idea", ".vscode"
     };
@@ -68,25 +66,20 @@ void runIndexingInBackground(const std::string root) {
         const std::string filename = entry.path().filename().string();
 
         if (ignoreSet.count(filename)) {
-            if (isDirectory(entry.path())) {
-                it.disable_recursion_pending();
-            }
+            if (isDirectory(entry.path())) it.disable_recursion_pending();
             continue;
         }
 
         const std::string path = entry.path().string();
         visited.insert(path);
 
-        /* Get filesystem mtime via stat() — C++17 compatible */
         uint64_t mtime = 0;
         struct stat st;
         if (::stat(path.c_str(), &st) == 0)
             mtime = static_cast<uint64_t>(st.st_mtime);
 
         if (lastSync == 0 || mtime > lastSync) {
-            /* New or modified — re-index */
-            if (lastSync != 0)
-                app.indexing.index.removePath(path); // clean old entries first
+            if (lastSync != 0) app.indexing.index.removePath(path);
             app.indexing.index.indexPath(path);
             (lastSync == 0 ? newCount : updCount)++;
         } else {
@@ -94,27 +87,83 @@ void runIndexingInBackground(const std::string root) {
         }
     }
 
-    /* ─── Zombie cleanup: remove index entries for paths no longer on disk ─── */
-    // We queue them up first (can't modify LMDB while we enumerate it here)
-    // This is a lightweight O(N_indexed) pass using the queue built during traverse.
-    // For now, any path that was in indexQueue previously but not in `visited`
-    // would be caught on next crawl. Full zombie sweep can be added as a Phase 2.
-    // (Traversal-based zombie detection requires iterating db_files — added in Phase 2)
-
     auto t2 = std::chrono::high_resolution_clock::now();
     auto secs = std::chrono::duration_cast<std::chrono::seconds>(t2 - t1).count();
+    logMessage("Crawl complete in " + std::to_string(secs) + "s — new=" + std::to_string(newCount) +
+               " updated=" + std::to_string(updCount) + " skipped=" + std::to_string(skipCount));
 
-    logMessage("Crawl complete in " + std::to_string(secs) + "s — "
-               "new=" + std::to_string(newCount) +
-               " updated=" + std::to_string(updCount) +
-               " skipped=" + std::to_string(skipCount));
+    // Update last sync time
+    app.indexing.index.setLastSyncTime(static_cast<uint64_t>(std::time(nullptr)));
 
-    /* ─── Update last sync timestamp in LMDB ─── */
-    auto now = std::chrono::time_point_cast<std::chrono::seconds>(
-                    std::chrono::system_clock::now());
-    app.indexing.index.setLastSyncTime(
-        static_cast<uint64_t>(now.time_since_epoch().count()));
+    /* ─── Continuous Monitoring Loop (with Batching) ─── */
+    logMessage("Real-time monitoring active.");
+    
+    MDB_txn *batchTxn = nullptr;
+    int batchCount = 0;
+    const int MAX_BATCH = 100;
 
-    logMessage("Indexing finished. Sync timestamp updated.");
+    auto commitBatch = [&]() {
+        if (batchTxn) {
+            mdb_txn_commit(batchTxn);
+            batchTxn = nullptr;
+            batchCount = 0;
+        }
+    };
+
+    while (!app.indexing.stopIndexer) {
+        WatcherEvent event;
+        bool hasEvent = false;
+
+        {
+            std::unique_lock<std::mutex> lock(app.indexing.mtx);
+            // Wait for event or stop, but with a timeout for idle commit
+            app.indexing.cv.wait_for(lock, std::chrono::milliseconds(500), [&] {
+                return !app.indexing.eventQueue.empty() || app.indexing.stopIndexer;
+            });
+
+            if (app.indexing.stopIndexer) {
+                commitBatch();
+                break;
+            }
+
+            if (!app.indexing.eventQueue.empty()) {
+                event = app.indexing.eventQueue.front();
+                app.indexing.eventQueue.pop();
+                hasEvent = true;
+            } else {
+                // Timeout reached - idle commit
+                commitBatch();
+                continue;
+            }
+        }
+
+        if (hasEvent) {
+            // Start transaction if needed
+            if (!batchTxn) {
+                if (mdb_txn_begin(app.indexing.index.getEnv(), nullptr, 0, &batchTxn) != MDB_SUCCESS) {
+                    continue;
+                }
+            }
+
+            // Process Event using the batch transaction
+            if (event.type == WatcherEventType::CREATE || event.type == WatcherEventType::MODIFY) {
+                app.indexing.index.removePath(event.path, batchTxn);
+                app.indexing.index.indexPath(event.path, batchTxn);
+            } else if (event.type == WatcherEventType::DELETE) {
+                app.indexing.index.removePath(event.path, batchTxn);
+            } else if (event.type == WatcherEventType::RENAME) {
+                if (!event.oldPath.empty()) app.indexing.index.removePath(event.oldPath, batchTxn);
+                app.indexing.index.indexPath(event.path, batchTxn);
+            }
+
+            batchCount++;
+            if (batchCount >= MAX_BATCH) {
+                commitBatch();
+            }
+        }
+    }
+
+    commitBatch();
     app.indexing.indexingInProgress = false;
+    logMessage("Indexing background thread exit.");
 }

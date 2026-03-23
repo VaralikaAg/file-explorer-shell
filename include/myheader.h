@@ -89,11 +89,13 @@ public:
     void open(const std::string &dbDir);   // call once at startup
     void close();                          // call at exit
 
+    /* Accessors */
+    MDB_env* getEnv() const { return env; }
+
     /* Core operations (same external API) */
-    void indexPath(const std::string &path);
-    void indexAllOnce(std::queue<std::string> &paths);
+    void indexPath(const std::string &path, MDB_txn *txn = nullptr);
     void search(const std::string &query);
-    void removePath(const std::string &path);
+    void removePath(const std::string &path, MDB_txn *txn = nullptr);
     void rectifyIndex(
         RectifyAction type,
         const std::vector<std::string> &oldPaths = {},
@@ -137,14 +139,39 @@ struct Config
     std::string indexingRoot;
 };
 
+enum class WatcherEventType { CREATE, MODIFY, DELETE, RENAME };
+
+struct WatcherEvent {
+    WatcherEventType type;
+    std::string path;
+    std::string oldPath; // only for RENAME
+};
+
+/* Base class for inotify/FSEvents */
+class FileSystemWatcher {
+public:
+    virtual ~FileSystemWatcher() {}
+    virtual bool start(const std::string& path) = 0;
+    virtual void stop() = 0;
+};
+
+/* Factory function (implemented in platform-specific .cpp) */
+FileSystemWatcher* createWatcher();
+
 struct IndexingState
 {
-    std::queue<std::string> indexQueue;
+    std::queue<WatcherEvent> eventQueue; // Queue for real-time events
+    std::queue<std::string> indexQueue;  // Queue for startup crawl
     InvertedIndex index;
-    /* freeFileIds removed: LMDB handles storage; next_file_id is monotonic */
 
     std::atomic<bool> indexingInProgress{false};
+    std::atomic<bool> stopIndexer{false};
     std::thread worker;
+
+    std::mutex mtx;
+    std::condition_variable cv;
+
+    FileSystemWatcher* watcher = nullptr;
 };
 
 struct SizeComputationState

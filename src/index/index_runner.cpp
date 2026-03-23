@@ -29,6 +29,16 @@ void startIndexing()
 
     app.indexing.index.open(dbDir);
 
+    /* ── Initialize Real-time Watcher (inotify/FSEvents) ── */
+    app.indexing.watcher = createWatcher();
+    if (app.indexing.watcher) {
+        if (app.indexing.watcher->start(main_root)) {
+            logMessage("Real-time filesystem watcher started on: " + main_root);
+        } else {
+            logMessage("WARNING: Could not start real-time watcher.");
+        }
+    }
+
     /* ── Launch background differential crawl + indexing thread ── */
     app.indexing.worker = std::thread(runIndexingInBackground, main_root);
     app.indexing.worker.detach();
