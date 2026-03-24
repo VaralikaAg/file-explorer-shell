@@ -1,23 +1,29 @@
 #include "myheader.h"
 
 std::string humanReadableSize(off_t size) {
-    const char *units[] = {"B", "KB", "MB", "GB", "TB"};
+    if (size == 0) return "0 B";
+    const char *units[] = {"B", "KB", "MB", "GB", "TB", "PB"};
     int unitIndex = 0;
-    double sizeInUnit = size;
+    double sizeInUnit = (double)size;
 
-    while (sizeInUnit >= 1024 && unitIndex < 4) {
+    while (sizeInUnit >= 1024 && unitIndex < 5) {
         sizeInUnit /= 1024;
         unitIndex++;
     }
 
     std::ostringstream oss;
-    oss << std::fixed << std::setprecision(2) << sizeInUnit << " " << units[unitIndex];
+    if (unitIndex == 0) {
+        oss << size << " B";
+    } else {
+        oss << std::fixed << std::setprecision(1) << sizeInUnit << " " << units[unitIndex];
+    }
     return oss.str();
 }
 
 std::string truncateStr(const std::string &str, size_t maxLength) {
-    if (str.length() > maxLength) {
-        return str.substr(0, maxLength) + "...";
+    if (str.length() <= maxLength) {
+        return str;
     }
-    return str + std::string(maxLength - str.length(), ' ');
+    if (maxLength <= 3) return "...";
+    return str.substr(0, maxLength - 3) + "...";
 }

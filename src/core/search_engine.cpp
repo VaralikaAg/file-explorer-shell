@@ -12,10 +12,14 @@ void searchAnything(const fs::path &dir, const std::string &filename, bool check
 
         bool isDir = isDirectory(fullPath);
 
+        std::string query = filename;
+        std::transform(query.begin(), query.end(),
+                       query.begin(), ::tolower);
+
         // 🔹 Match logic (no duplication)
         if ((isDir && check_dir) || (!isDir && check_file))
         {
-            if (entryName.find(filename) != std::string::npos)
+            if (entryName.find(query) != std::string::npos)
             {
                 app.search.foundPaths.push_back(fullPath.string());
             }

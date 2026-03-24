@@ -28,11 +28,8 @@ void normalizeRange(int total, int rowSize, int &up, int &down, int &x)
 
 void scrollToIndex(int index, int total, int rowSize, int &up, int &down, int &x)
 {
-    if (index < 0 || total == 0)
+    if (index < 0 || index >= total || total == 0)
         return;
-
-    if (index >= total)
-        index = total - 1;
 
     if (index < rowSize)
     {
@@ -112,77 +109,26 @@ bool isUnderCurrentDir(const std::string &path)
 
 void navigateToAbsolutePath(const std::string &absPath)
 {
-
-    if (absPath.empty() || absPath[0] != '/') {
+    if (absPath.empty() || absPath[0] != '/' || !fs::exists(absPath) || !fs::is_directory(absPath)) {
         openCurrDirectory(app.nav.currPath.c_str());
         renderUI();
         setDefaultCursorPos();
         return;
     }
 
-    std::vector<std::string> pathParts;
-    std::stringstream ss(absPath);
-    std::string segment;
-    
-    while (getline(ss, segment, '/')) {
-        if (!segment.empty()) {
-            pathParts.push_back(segment);
-        }
-    }
-
-    std::string newPath = "/";
-    std::stack<NavState> tempStack, dummyStack;
-
-    for (const auto& dir : pathParts) {
-        getDirectoryCount(newPath.c_str()); // Get directory contents
-        bool found = false;
-        int i=0;
-
-        for (const auto &item : app.nav.fileList)
-        {
-            i++;
-            if (item == dir) {
-                int index=i;
-                NavState currState;
-                currState.path = newPath;
-                int dummy_down = 0;
-                scrollToIndex(index - 1, (int)app.nav.fileList.size(), app.layout.rowSize, currState.up_screen, dummy_down, currState.xcurr);
-
-                tempStack.push(currState);
-
-                found = true;
-                newPath = newPath + "/" + dir ;
-
-                break;
-            }
-        }
-
-        if (!found) {
-            while (!tempStack.empty()) tempStack.pop(); // Clear stack
-            openCurrDirectory(app.nav.currPath.c_str());
-            renderUI();
-            setDefaultCursorPos();
-            return;
-        }
-    }
-
+    // Clear history stack and set new path
     while (!app.nav.backStack.empty())
         app.nav.backStack.pop();
-    while (!tempStack.empty()) {
-        dummyStack.push(tempStack.top());
-        tempStack.pop();
-    }
-    while (!dummyStack.empty()) {
-        app.nav.backStack.push(dummyStack.top());
-        dummyStack.pop();
-    }
 
-    app.nav.currPath = newPath;
-
-    openCurrDirectory(app.nav.currPath.c_str());
+    app.nav.currPath = absPath;
     app.nav.up_screen = 0;
-    app.nav.down_screen = (int)app.nav.fileList.size() - app.layout.rowSize;
     app.nav.xcurr = 1;
+
+    // Refresh contents
+    getDirectoryCount(app.nav.currPath);
+    app.nav.down_screen = (int)app.nav.fileList.size() - app.layout.rowSize;
+    if (app.nav.down_screen < 0) app.nav.down_screen = 0;
+
     renderUI();
     setDefaultCursorPos();
 }

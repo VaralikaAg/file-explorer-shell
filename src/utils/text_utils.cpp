@@ -46,10 +46,14 @@ std::string normalizeWord(const std::string &input)
         {
             out += static_cast<char>(uc);
         }
+        else
+        {
+            return "";
+        }
     }
 
     // remove empty or stopwords
-    if (out.empty() || STOPWORDS.count(out))
+    if (out.empty() || STOPWORDS.count(out) || out.size() >= 128)
         return "";
 
     return out;
