@@ -1,92 +1,93 @@
-#include "myheader.h"
+#include "myheader.hpp"
 
 void displayFoundFiles(int file_up) {
     clearScreen();
 
-    for (int i = file_up, line = 1; i < (int)app.search.foundPaths.size() && i < file_up + app.layout.rowSize; i++, line++)
+    for (int i = file_up, line = 1; i < (int)app.search.found_paths.size() && i < file_up + app.layout.row_size; i++, line++)
     {
-        std::string filePath = app.search.foundPaths[i];
+        std::string file_path = app.search.found_paths[i];
 
-        const size_t availableWidth = app.ui.cols - 3;
+        const size_t available_width = app.ui.cols - 3;
 
-        if (filePath.length() > availableWidth) {
-            filePath = "..." + filePath.substr(
-                filePath.length() - (availableWidth - 3)
+        if (file_path.length() > available_width) {
+            file_path = "..." + file_path.substr(
+                file_path.length() - (available_width - 3)
             );
         }
 
         setCursorPos(static_cast<int>(line), 3);
-        printf("%s\n", filePath.c_str());
+        std::cout << file_path << "\n";
     }
 }
 
-void jumpToSearchResult(const std::string &selectedPath){
-    while (!app.nav.backStack.empty())
+void jumpToSearchResult(const std::string &selected_path){
+    while (!app.nav.back_stack.empty())
     {
-        app.nav.backStack.pop();
+        app.nav.back_stack.pop();
     }
 
-    std::stringstream ss(selectedPath);
+    std::stringstream ss(selected_path);
     std::string token;
-    std::vector<std::string> pathSegments;
+    std::vector<std::string> path_segments;
 
     while (getline(ss, token, '/'))
     {
-        pathSegments.push_back(token);
+        path_segments.push_back(token);
     }
 
-    std::string rebuiltPath = "";
-    for (size_t i = 1; i < pathSegments.size() - 1; i++)
+    std::string rebuilt_path = "";
+    for (size_t i = 1; i < path_segments.size() - 1; i++)
     {
-        rebuiltPath += "/";
-        rebuiltPath += pathSegments[i];
+        rebuilt_path += "/";
+        rebuilt_path += path_segments[i];
 
-        NavState rePath;
-        rePath.path = rebuiltPath;
+        NavState re_path;
+        re_path.path = rebuilt_path;
 
-        getDirectoryCount(rebuiltPath.c_str());
+        app.nav.file_list = getDirectoryFiles(rebuilt_path);
+        app.layout.total_files = app.nav.file_list.size();
 
-        auto it = find(app.nav.fileList.begin(), app.nav.fileList.end(), pathSegments[i + 1]);
+        auto it = find(app.nav.file_list.begin(), app.nav.file_list.end(), path_segments[i + 1]);
 
-        if (it != app.nav.fileList.end())
+        if (it != app.nav.file_list.end())
         {
-            int dis = distance(app.nav.fileList.begin(), it) + 1;
+            int dis = distance(app.nav.file_list.begin(), it) + 1;
 
             int dummy_down = 0;
-            scrollToIndex(dis - 1, (int)app.nav.fileList.size(), app.layout.rowSize, rePath.up_screen, dummy_down, rePath.xcurr);
+            scrollToIndex(dis - 1, (int)app.nav.file_list.size(), app.layout.row_size, re_path.up_screen, dummy_down, re_path.x_curr);
         }
 
-        app.nav.backStack.push(rePath);
+        app.nav.back_stack.push(re_path);
     }
 
-    if (!app.nav.backStack.empty())
+    if (!app.nav.back_stack.empty())
     {
-        app.nav.currPath = app.nav.backStack.top().path;
+        app.nav.curr_path = app.nav.back_stack.top().path;
     }
 
-    std::string fileName = pathSegments.back();
+    std::string file_name = path_segments.back();
 
-    openCurrDirectory(app.nav.currPath.c_str());
-    app.nav.backStack.pop();
+    openCurrDirectory(app.nav.curr_path.c_str());
+    app.nav.back_stack.pop();
 
-    auto it = find(app.nav.fileList.begin(), app.nav.fileList.end(), fileName);
+    auto it = find(app.nav.file_list.begin(), app.nav.file_list.end(), file_name);
 
-    if (it != app.nav.fileList.end())
+    if (it != app.nav.file_list.end())
     {
-        int dis = distance(app.nav.fileList.begin(), it) + 1;
+        int dis = distance(app.nav.file_list.begin(), it) + 1;
 
-        scrollToIndex(dis - 1, (int)app.nav.fileList.size(), app.layout.rowSize, app.nav.up_screen, app.nav.down_screen, app.nav.xcurr);
+        scrollToIndex(dis - 1, (int)app.nav.file_list.size(), app.layout.row_size, app.nav.up_screen, app.nav.down_screen, app.nav.x_curr);
     }
 }
 
 void displaySearchResults(){
-    if ((int)app.search.foundPaths.size() == 0)
+    if ((int)app.search.found_paths.size() == 0)
         return;
 
     char ch;
 
     int file_up = 0, file_down = 0, filecurr = 1;
-    normalizeRange((int)app.search.foundPaths.size(), app.layout.rowSize, file_up, file_down, filecurr);
+    normalizeRange((int)app.search.found_paths.size(), app.layout.row_size, file_up, file_down, filecurr);
     displayFoundFiles(file_up);
     setCursorPos(1,1);
     while (true) {
@@ -110,19 +111,19 @@ void displaySearchResults(){
                     file_up--;
                 }
             } else if (ch == 'B') { // Down arrow key
-                if (filecurr < app.layout.rowSize && filecurr < (int)app.search.foundPaths.size()) {
+                if (filecurr < app.layout.row_size && filecurr < (int)app.search.found_paths.size()) {
                     filecurr++;
                 } else if (file_down > 0) {
                     file_up++;
                 }
             }
-            normalizeRange((int)app.search.foundPaths.size(), app.layout.rowSize, file_up, file_down, filecurr);
+            normalizeRange((int)app.search.found_paths.size(), app.layout.row_size, file_up, file_down, filecurr);
             displayFoundFiles(file_up);
             setCursorPos(filecurr, 1);
         }
         else if (ch == '\n' || ch == '\r'){
-            std::string selectedPath  = app.search.foundPaths[filecurr + file_up - 1];
-            jumpToSearchResult(selectedPath);
+            std::string selected_path  = app.search.found_paths[filecurr + file_up - 1];
+            jumpToSearchResult(selected_path);
             renderUI();
             return;
         }

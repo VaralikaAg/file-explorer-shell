@@ -1,17 +1,16 @@
-#include "myheader.h"
+#include "myheader.hpp"
 
-void renderStatusBar() {
-    setCursorPos(app.ui.rows-2, 0);
-    std::cout << "\033[1;34mCurrent Path: " << app.nav.currPath << "\033[0m\n";
-
-    setCursorPos(1,1);
-    print_details();
-}
-
-void showStatusMessage(const std::string &msg, const std::string &color)
+void showStatusMessage(const std::string &msg, const std::string &color, int wait_ms)
 {
     setCursorPos(app.ui.rows - 2, 0);
-    printf("\033[K");
-    printf("%s%s\033[0m", color.c_str(), msg.c_str());
+    std::cout << ANSI::CLEAR_LINE;
+    std::cout << color << msg << ANSI::RESET << std::flush;
     setDefaultCursorPos();
+
+    if (wait_ms > 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(wait_ms));
+        setCursorPos(app.ui.rows - 2, 0);
+        std::cout << ANSI::CLEAR_LINE << std::flush;
+        setDefaultCursorPos();
+    }
 }

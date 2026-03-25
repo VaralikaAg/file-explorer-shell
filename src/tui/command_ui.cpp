@@ -1,14 +1,14 @@
-#include "myheader.h"
+#include "myheader.hpp"
 
 void commandMode()
 {
     setCursorPos(app.ui.rows - 2, 0);
-    printf("\033[K");
-    printf("\033[1;36m:\033[0m ");
+    std::cout << ANSI::CLEAR_LINE;
+    std::cout << ANSI::BOLD_CYAN << ":" << ANSI::RESET << " " << std::flush;
 
-    std::string commandLine = get_input();
+    std::string command_line = getInput();
 
-    CommandResult res = processCommand(commandLine);
+    CommandResult res = processCommand(command_line);
 
     // HANDLE SPECIAL CASES
     if (res.message == "SHOW_HELP") {
@@ -23,16 +23,16 @@ void commandMode()
 
     // STATUS MESSAGE
     if (!res.message.empty()) {
-        std::string color = res.success ? "\033[1;32m" : "\033[1;31m";
-        showStatusMessage(res.message, color);
+        std::string color = res.success ? ANSI::BOLD_GREEN : ANSI::BOLD_RED;
+        showStatusMessage(res.message, color, res.success ? 0 : 2000);
     }
 
     // REFRESH
     if (res.refresh) {
         refreshCurrentDirectory();
 
-        if (!res.targetFile.empty()) {
-            update_position(res.targetFile);
+        if (!res.target_file.empty()) {
+            updatePosition(res.target_file);
         }
 
         renderUI();

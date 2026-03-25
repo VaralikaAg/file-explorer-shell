@@ -1,56 +1,54 @@
-#include "myheader.h"
+#include "myheader.hpp"
 
 void handleResizeIfNeeded() {
     if (app.layout.resized) {
         app.layout.resized = 0;
 
-        get_terminal_size();
-        app.layout.rowSize = (app.ui.rows * 75) / 100;
-        app.layout.colSize = app.ui.cols / 3;
+        getTerminalSize();
+        app.layout.row_size = (app.ui.rows * 75) / 100;
+        app.layout.col_size = app.ui.cols / 3;
 
         normalizeCursor();
     }
 }
 
 void cleanup() {
-    app.sizeState.cancelFlag = true;
+    app.size_state.cancel_flag = true;
 
-    if (app.sizeState.worker.joinable())
-        app.sizeState.worker.join();
+    if (app.size_state.worker.joinable())
+        app.size_state.worker.join();
 }
 
 void stopFolderScan() {
-    app.sizeState.cancelFlag = true;
+    app.size_state.cancel_flag = true;
 
-    if (app.sizeState.worker.joinable())
-        app.sizeState.worker.join();
-    app.sizeState.inProgress = false;
+    if (app.size_state.worker.joinable())
+        app.size_state.worker.join();
+    app.size_state.in_progress = false;
     setDefaultCursorPos();
 }
 
 void runIndexingInBackground(const std::string root) {
-    app.indexing.indexingInProgress = true;
+    app.indexing.indexing_in_progress = true;
 
     if (!isDirectory(root)) {
-        app.indexing.indexingInProgress = false;
-        fprintf(stderr,
-            "\033[1;31mError:\033[0m indexing_root '%s' is not a valid directory\n",
-            root.c_str());
+        app.indexing.indexing_in_progress = false;
+        std::cerr << ANSI::BOLD_RED << "Error:" << ANSI::RESET << " indexing_root '" << root << "' is not a valid directory\n";
         exit(EXIT_FAILURE);
     }
 
     /* ─── Read last sync timestamp from LMDB ─── */
-    uint64_t lastSync = app.indexing.index.getLastSyncTime();
-    logMessage(lastSync == 0 ? "First-time indexing (full crawl)..."
-                             : "Differential crawl since ts=" + std::to_string(lastSync));
+    uint64_t last_sync = app.indexing.index.getLastSyncTime();
+    logMessage(last_sync == 0 ? "First-time indexing (full crawl)..."
+                             : "Differential crawl since ts=" + std::to_string(last_sync));
 
     std::unordered_set<std::string> visited;
-    static const std::unordered_set<std::string> ignoreSet = {
+    static const std::unordered_set<std::string> ignore_set = {
         ".git", ".svn", ".hg", "node_modules", "build", "dist", ".env", "env", "venv", ".venv", "bin", "obj", ".idea", ".vscode"
     };
 
     auto t1 = std::chrono::high_resolution_clock::now();
-    int  newCount = 0, updCount = 0, skipCount = 0;
+    int  new_count = 0, upd_count = 0, skip_count = 0;
 
     std::error_code ec;
     for (auto it = fs::recursive_directory_iterator(root,
@@ -63,9 +61,9 @@ void runIndexingInBackground(const std::string root) {
         }
 
         const auto &entry = *it;
-        const std::string filename = entry.path().filename().string();
+        const std::string file_name = entry.path().filename().string();
 
-        if (ignoreSet.count(filename)) {
+        if (ignore_set.count(file_name)) {
             if (isDirectory(entry.path())) it.disable_recursion_pending();
             continue;
         }
@@ -74,23 +72,27 @@ void runIndexingInBackground(const std::string root) {
         visited.insert(path);
 
         uint64_t mtime = 0;
-        struct stat st;
-        if (::stat(path.c_str(), &st) == 0)
-            mtime = static_cast<uint64_t>(st.st_mtime);
+        std::error_code stat_ec;
+        auto ftime = fs::last_write_time(entry.path(), stat_ec);
+        if (!stat_ec) {
+            auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+                ftime - fs::file_time_type::clock::now() + std::chrono::system_clock::now());
+            mtime = std::chrono::system_clock::to_time_t(sctp);
+        }
 
-        if (lastSync == 0 || mtime > lastSync) {
-            if (lastSync != 0) app.indexing.index.removePath(path);
+        if (last_sync == 0 || mtime > last_sync) {
+            if (last_sync != 0) app.indexing.index.removePath(path);
             app.indexing.index.indexPath(path);
-            (lastSync == 0 ? newCount : updCount)++;
+            (last_sync == 0 ? new_count : upd_count)++;
         } else {
-            skipCount++;
+            skip_count++;
         }
     }
 
     auto t2 = std::chrono::high_resolution_clock::now();
     auto secs = std::chrono::duration_cast<std::chrono::seconds>(t2 - t1).count();
-    logMessage("Crawl complete in " + std::to_string(secs) + "s — new=" + std::to_string(newCount) +
-               " updated=" + std::to_string(updCount) + " skipped=" + std::to_string(skipCount));
+    logMessage("Crawl complete in " + std::to_string(secs) + "s — new=" + std::to_string(new_count) +
+               " updated=" + std::to_string(upd_count) + " skipped=" + std::to_string(skip_count));
 
     // Update last sync time
     app.indexing.index.setLastSyncTime(static_cast<uint64_t>(std::time(nullptr)));
@@ -98,72 +100,71 @@ void runIndexingInBackground(const std::string root) {
     /* ─── Continuous Monitoring Loop (with Batching) ─── */
     logMessage("Real-time monitoring active.");
     
-    MDB_txn *batchTxn = nullptr;
-    int batchCount = 0;
+    MDB_txn *batch_txn = nullptr;
+    int batch_count = 0;
     const int MAX_BATCH = 100;
 
-    auto commitBatch = [&]() {
-        if (batchTxn) {
-            mdb_txn_commit(batchTxn);
-            batchTxn = nullptr;
-            batchCount = 0;
+    auto commit_batch = [&]() {
+        if (batch_txn) {
+            mdb_txn_commit(batch_txn);
+            batch_txn = nullptr;
+            batch_count = 0;
         }
     };
 
-    while (!app.indexing.stopIndexer) {
+    while (!app.indexing.stop_indexer) {
         WatcherEvent event;
-        bool hasEvent = false;
+        bool has_event = false;
 
         {
             std::unique_lock<std::mutex> lock(app.indexing.mtx);
             // Wait for event or stop, but with a timeout for idle commit
             app.indexing.cv.wait_for(lock, std::chrono::milliseconds(500), [&] {
-                return !app.indexing.eventQueue.empty() || app.indexing.stopIndexer;
+                return !app.indexing.event_queue.empty() || app.indexing.stop_indexer;
             });
 
-            if (app.indexing.stopIndexer) {
-                commitBatch();
+            if (app.indexing.stop_indexer) {
+                commit_batch();
                 break;
             }
 
-            if (!app.indexing.eventQueue.empty()) {
-                event = app.indexing.eventQueue.front();
-                app.indexing.eventQueue.pop();
-                hasEvent = true;
+            if (!app.indexing.event_queue.empty()) {
+                event = app.indexing.event_queue.front();
+                app.indexing.event_queue.pop();
+                has_event = true;
             } else {
                 // Timeout reached - idle commit
-                commitBatch();
+                commit_batch();
                 continue;
             }
         }
 
-        if (hasEvent) {
+        if (has_event) {
             // Start transaction if needed
-            if (!batchTxn) {
-                if (mdb_txn_begin(app.indexing.index.getEnv(), nullptr, 0, &batchTxn) != MDB_SUCCESS) {
+            if (!batch_txn) {
+                if (mdb_txn_begin(app.indexing.index.getEnv(), nullptr, 0, &batch_txn) != MDB_SUCCESS) {
                     continue;
                 }
             }
 
             // Process Event using the batch transaction
             if (event.type == WatcherEventType::CREATE || event.type == WatcherEventType::MODIFY) {
-                app.indexing.index.removePath(event.path, batchTxn);
-                app.indexing.index.indexPath(event.path, batchTxn);
+                app.indexing.index.updatePath(event.path, batch_txn);
             } else if (event.type == WatcherEventType::DELETE) {
-                app.indexing.index.removePath(event.path, batchTxn);
+                app.indexing.index.removePath(event.path, batch_txn);
             } else if (event.type == WatcherEventType::RENAME) {
-                if (!event.oldPath.empty()) app.indexing.index.removePath(event.oldPath, batchTxn);
-                app.indexing.index.indexPath(event.path, batchTxn);
+                if (!event.old_path.empty()) app.indexing.index.removePath(event.old_path, batch_txn);
+                app.indexing.index.updatePath(event.path, batch_txn);
             }
 
-            batchCount++;
-            if (batchCount >= MAX_BATCH) {
-                commitBatch();
+            batch_count++;
+            if (batch_count >= MAX_BATCH) {
+                commit_batch();
             }
         }
     }
 
-    commitBatch();
-    app.indexing.indexingInProgress = false;
+    commit_batch();
+    app.indexing.indexing_in_progress = false;
     logMessage("Indexing background thread exit.");
 }

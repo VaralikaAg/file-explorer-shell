@@ -1,34 +1,29 @@
-#include "myheader.h"
+#include "myheader.hpp"
 
-void searchAnything(const fs::path &dir, const std::string &filename, bool check_file, bool check_dir)
-{
-    for (const auto &entry : fs::directory_iterator(dir))
-    {
-        fs::path fullPath = entry.path();
+void searchAnything(const fs::path &dir, const std::string &file_name,
+                    bool check_file, bool check_dir) {
+  for (const auto &entry : fs::directory_iterator(dir)) {
+    fs::path full_path = entry.path();
 
-        std::string entryName = fullPath.filename().string();
-        std::transform(entryName.begin(), entryName.end(),
-                       entryName.begin(), ::tolower);
+    std::string entry_name = full_path.filename().string();
+    std::transform(entry_name.begin(), entry_name.end(), entry_name.begin(),
+                   ::tolower);
 
-        bool isDir = isDirectory(fullPath);
+    bool is_dir = isDirectory(full_path);
 
-        std::string query = filename;
-        std::transform(query.begin(), query.end(),
-                       query.begin(), ::tolower);
+    std::string query = file_name;
+    std::transform(query.begin(), query.end(), query.begin(), ::tolower);
 
-        // 🔹 Match logic (no duplication)
-        if ((isDir && check_dir) || (!isDir && check_file))
-        {
-            if (entryName.find(query) != std::string::npos)
-            {
-                app.search.foundPaths.push_back(fullPath.string());
-            }
-        }
-
-        // 🔹 Recurse
-        if (isDir)
-        {
-            searchAnything(fullPath, filename, check_file, check_dir);
-        }
+    // Match logic (no duplication)
+    if ((is_dir && check_dir) || (!is_dir && check_file)) {
+      if (entry_name.find(query) != std::string::npos) {
+        app.search.found_paths.push_back(full_path.string());
+      }
     }
+
+    // Recurse
+    if (is_dir) {
+      searchAnything(full_path, file_name, check_file, check_dir);
+    }
+  }
 }

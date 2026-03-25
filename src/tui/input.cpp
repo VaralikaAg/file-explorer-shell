@@ -1,4 +1,4 @@
-#include "myheader.h"
+#include "myheader.hpp"
 
 bool inputAvailable()
 {
@@ -13,12 +13,12 @@ bool inputAvailable()
     return select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &tv) > 0;
 }
 
-std::string get_input() {
-    std::string commandLine;
+std::string getInput() {
+    std::string command_line;
     char ch;
 
     while (true) {
-        ch = getchar();   // use getchar(), not cin
+        ch = std::cin.get();   // use std::cin.get(), not cin >>
 
         /* ENTER */
         if (ch == '\n' || ch == '\r') {
@@ -27,26 +27,26 @@ std::string get_input() {
 
         /* BACKSPACE / DELETE */
         if (ch == 127 || ch == '\b') {
-            if (!commandLine.empty()) {
-                printf("\b \b");
-                commandLine.pop_back();
+            if (!command_line.empty()) {
+                std::cout << "\b \b" << std::flush;
+                command_line.pop_back();
             }
             continue;
         }
 
         /* ESC SEQUENCE (arrow keys, home, end, etc.) */
         if (ch == 27) {   // ESC
-            getchar();    // skip '['
-            getchar();    // skip final char (A/B/C/D)
+            std::cin.get();    // skip '['
+            std::cin.get();    // skip final char (A/B/C/D)
             continue;     // IGNORE completely
         }
 
         /* Printable characters only */
         if (isprint(ch)) {
-            commandLine.push_back(ch);
-            putchar(ch);
+            command_line.push_back(ch);
+            std::cout << ch << std::flush;
         }
     }
 
-    return commandLine;
+    return command_line;
 }

@@ -1,18 +1,11 @@
 #ifdef __linux__
-#include "myheader.h"
+#include "myheader.hpp"
 #include <sys/inotify.h>
-#include <unistd.h>
-#include <map>
-#include <vector>
-#include <string>
-#include <filesystem>
-
-namespace fs = std::filesystem;
 
 class LinuxFileSystemWatcher : public FileSystemWatcher {
     int fd = -1;
-    std::thread loopThread;
-    std::map<int, std::string> watchDescriptors;
+    std::thread loop_thread;
+    std::map<int, std::string> watch_descriptors;
     std::mutex watchMtx;
 
 public:
@@ -26,7 +19,7 @@ public:
 
         addRecursiveWatch(path);
 
-        loopThread = std::thread([this]() {
+        loop_thread = std::thread([this]() {
             char buffer[4096];
             while (fd >= 0) {
                 ssize_t length = read(fd, buffer, sizeof(buffer));
@@ -37,19 +30,19 @@ public:
                     struct inotify_event *event = (struct inotify_event *)&buffer[i];
                     if (event->len) {
                         std::string name = event->name;
-                        std::string parentPath;
+                        std::string parent_path;
                         {
                             std::lock_guard<std::mutex> lock(watchMtx);
-                            parentPath = watchDescriptors[event->wd];
+                            parent_path = watch_descriptors[event->wd];
                         }
                         
-                        std::string fullPath = parentPath + "/" + name;
+                        std::string full_path = parent_path + "/" + name;
                         WatcherEvent ev;
-                        ev.path = fullPath;
+                        ev.path = full_path;
 
                         if (event->mask & IN_CREATE) {
                             ev.type = WatcherEventType::CREATE;
-                            if (event->mask & IN_ISDIR) addRecursiveWatch(fullPath);
+                            if (event->mask & IN_ISDIR) addRecursiveWatch(full_path);
                         } else if (event->mask & IN_DELETE) {
                             ev.type = WatcherEventType::DELETE;
                         } else if (event->mask & (IN_MODIFY | IN_CLOSE_WRITE)) {
@@ -58,12 +51,12 @@ public:
                             ev.type = WatcherEventType::DELETE; // Simplified move
                         } else if (event->mask & IN_MOVED_TO) {
                             ev.type = WatcherEventType::CREATE;
-                            if (event->mask & IN_ISDIR) addRecursiveWatch(fullPath);
+                            if (event->mask & IN_ISDIR) addRecursiveWatch(full_path);
                         }
 
                         {
                             std::lock_guard<std::mutex> lock(app.indexing.mtx);
-                            app.indexing.eventQueue.push(ev);
+                            app.indexing.event_queue.push(ev);
                         }
                         app.indexing.cv.notify_one();
                     }
@@ -82,7 +75,7 @@ public:
         int wd = inotify_add_watch(fd, path.c_str(), IN_CREATE | IN_DELETE | IN_MODIFY | IN_CLOSE_WRITE | IN_MOVED_FROM | IN_MOVED_TO);
         if (wd >= 0) {
             std::lock_guard<std::mutex> lock(watchMtx);
-            watchDescriptors[wd] = path;
+            watch_descriptors[wd] = path;
         }
 
         for (const auto& entry : fs::recursive_directory_iterator(path, fs::directory_options::skip_permission_denied, ec)) {
@@ -90,7 +83,7 @@ public:
                 int swd = inotify_add_watch(fd, entry.path().c_str(), IN_CREATE | IN_DELETE | IN_MODIFY | IN_CLOSE_WRITE | IN_MOVED_FROM | IN_MOVED_TO);
                 if (swd >= 0) {
                     std::lock_guard<std::mutex> lock(watchMtx);
-                    watchDescriptors[swd] = entry.path().string();
+                    watch_descriptors[swd] = entry.path().string();
                 }
             }
         }
@@ -102,8 +95,8 @@ public:
         if (old_fd >= 0) {
             close(old_fd);
         }
-        if (loopThread.joinable()) {
-            loopThread.join();
+        if (loop_thread.joinable()) {
+            loop_thread.join();
         }
     }
 };

@@ -1,134 +1,121 @@
-#include "myheader.h"
+#include "myheader.hpp"
 
-void normalizeRange(int total, int rowSize, int &up, int &down, int &x)
-{
-    if (total == 0)
-    {
-        up = 0;
-        down = 0;
-        x = 1;
-        return;
-    }
+void normalizeRange(int total, int row_size, int &up, int &down, int &x) {
+  if (total == 0) {
+    up = 0;
+    down = 0;
+    x = 1;
+    return;
+  }
 
-    int maxUp = (total > rowSize) ? total - rowSize : 0;
-    if (up < 0)
-        up = 0;
-    if (up > maxUp)
-        up = maxUp;
+  int max_up = (total > row_size) ? total - row_size : 0;
+  if (up < 0)
+    up = 0;
+  if (up > max_up)
+    up = max_up;
 
-    int visible = total - up;
-    int maxX = std::min(rowSize, visible);
-    if (x < 1)
-        x = 1;
-    if (x > maxX)
-        x = maxX;
+  int visible = total - up;
+  int max_x = std::min(row_size, visible);
+  if (x < 1)
+    x = 1;
+  if (x > max_x)
+    x = max_x;
 
-    down = std::max(0, total - up - rowSize);
+  down = std::max(0, total - up - row_size);
 }
 
-void scrollToIndex(int index, int total, int rowSize, int &up, int &down, int &x)
-{
-    if (index < 0 || index >= total || total == 0)
-        return;
+void scrollToIndex(int index, int total, int row_size, int &up, int &down,
+                   int &x) {
+  if (index < 0 || index >= total || total == 0)
+    return;
 
-    if (index < rowSize)
-    {
-        up = 0;
-        x = index + 1;
-    }
-    else
-    {
-        up = index - rowSize + 1;
-        x = rowSize;
-    }
-    down = std::max(0, total - up - rowSize);
+  if (index < row_size) {
+    up = 0;
+    x = index + 1;
+  } else {
+    up = index - row_size + 1;
+    x = row_size;
+  }
+  down = std::max(0, total - up - row_size);
 }
 
-void openDirectory(const char *path, int &up, int &down)
-{
-    app.layout.totalFiles = getDirectoryCount(path);
-    int dummy_x = 1;
+void openDirectory(const std::string &path, int &up, int &down) {
+  std::vector<std::string> files = getDirectoryFiles(path);
+  app.layout.total_files = files.size();
+  int dummy_x = 1;
 
-    normalizeRange((int)app.nav.fileList.size(), app.layout.rowSize, up, down, dummy_x);
+  normalizeRange((int)files.size(), app.layout.row_size, up, down, dummy_x);
 }
 
-void openCurrDirectory(const char *path)
-{
-    if ((int)app.cache.dirCache.size() > app.cache.max_cache_entries)
-    {
-        app.cache.dirCache.erase(app.cache.dirCache.begin());
+void openCurrDirectory(const std::string &path) {
+  if ((int)app.cache.dir_cache.size() > app.cache.MAX_CACHE_ENTRIES) {
+    app.cache.dir_cache.erase(app.cache.dir_cache.begin());
+  }
+
+  app.nav.file_list = getDirectoryFiles(path);
+  app.layout.total_files = app.nav.file_list.size();
+}
+
+void normalizeCursor() {
+  normalizeRange((int)app.nav.file_list.size(), app.layout.row_size,
+                 app.nav.up_screen, app.nav.down_screen, app.nav.x_curr);
+}
+
+void updatePosition(const std::string &file_name) {
+  int idx = -1;
+  for (size_t i = 0; i < app.nav.file_list.size(); i++) {
+    if (app.nav.file_list[i] == file_name) {
+      idx = i;
+      break;
     }
-
-    app.layout.totalFiles = getDirectoryCount(path);
-
-    if(app.layout.totalFiles == 0) {
-        return;
-    }
+  }
+  if (idx != -1) {
+    scrollToIndex(idx, (int)app.nav.file_list.size(), app.layout.row_size,
+                  app.nav.up_screen, app.nav.down_screen, app.nav.x_curr);
+  }
 }
 
-void normalizeCursor()
-{
-    normalizeRange((int)app.nav.fileList.size(), app.layout.rowSize, app.nav.up_screen, app.nav.down_screen, app.nav.xcurr);
+void handleToggleSelectAction() {
+  std::string file = app.nav.file_list[app.nav.x_curr + app.nav.up_screen - 1];
+  std::string full_path = app.nav.curr_path + "/" + file;
+
+  if (app.selection.selected_files.count(full_path))
+    app.selection.selected_files.erase(full_path);
+  else
+    app.selection.selected_files.insert(full_path);
 }
 
-void update_position(const std::string &fileName)
-{
-    int idx = -1;
-    for (size_t i = 0; i < app.nav.fileList.size(); i++)
-    {
-        if (app.nav.fileList[i] == fileName)
-        {
-            idx = i;
-            break;
-        }
-    }
-    if (idx != -1)
-    {
-        scrollToIndex(idx, (int)app.nav.fileList.size(), app.layout.rowSize, app.nav.up_screen, app.nav.down_screen, app.nav.xcurr);
-    }
+bool isUnderCurrentDir(const std::string &path) {
+  std::string base(app.nav.curr_path);
+  if (base.back() != '/')
+    base += '/';
+  return path.rfind(base, 0) == 0;
 }
 
-void toggleSelect()
-{
-    std::string file = app.nav.fileList[app.nav.xcurr + app.nav.up_screen - 1];
-    std::string fullPath = app.nav.currPath + "/" + file;
-
-    if (app.selection.selectedFiles.count(fullPath))
-        app.selection.selectedFiles.erase(fullPath);
-    else
-        app.selection.selectedFiles.insert(fullPath);
-}
-
-bool isUnderCurrentDir(const std::string &path)
-{
-    std::string base(app.nav.currPath);
-    if (base.back() != '/')
-        base += '/';
-    return path.rfind(base, 0) == 0;
-}
-
-void navigateToAbsolutePath(const std::string &absPath)
-{
-    if (absPath.empty() || absPath[0] != '/' || !fs::exists(absPath) || !fs::is_directory(absPath)) {
-        openCurrDirectory(app.nav.currPath.c_str());
-        renderUI();
-        setDefaultCursorPos();
-        return;
-    }
-
-    // Clear history stack and set new path
-    while (!app.nav.backStack.empty())
-        app.nav.backStack.pop();
-
-    app.nav.currPath = absPath;
-    app.nav.up_screen = 0;
-    app.nav.xcurr = 1;
-
-    // Refresh contents
-    getDirectoryCount(app.nav.currPath);
-    app.nav.down_screen = (int)app.nav.fileList.size() - app.layout.rowSize;
-    if (app.nav.down_screen < 0) app.nav.down_screen = 0;
-
+void navigateToAbsolutePath(const std::string &abs_path) {
+  if (abs_path.empty() || abs_path[0] != '/' || !fs::exists(abs_path) ||
+      !fs::is_directory(abs_path)) {
+    openCurrDirectory(app.nav.curr_path);
     renderUI();
     setDefaultCursorPos();
+    return;
+  }
+
+  // Clear history stack and set new path
+  while (!app.nav.back_stack.empty())
+    app.nav.back_stack.pop();
+
+  app.nav.curr_path = abs_path;
+  app.nav.up_screen = 0;
+  app.nav.x_curr = 1;
+
+  // Refresh contents
+  app.nav.file_list = getDirectoryFiles(app.nav.curr_path);
+  app.layout.total_files = app.nav.file_list.size();
+  app.nav.down_screen = (int)app.nav.file_list.size() - app.layout.row_size;
+  if (app.nav.down_screen < 0)
+    app.nav.down_screen = 0;
+
+  renderUI();
+  setDefaultCursorPos();
 }

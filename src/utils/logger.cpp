@@ -1,4 +1,4 @@
-#include "myheader.h"
+#include "myheader.hpp"
 
 void logMessage(const std::string &message)
 {
@@ -8,14 +8,14 @@ void logMessage(const std::string &message)
     // Ensure directory exists
     std::filesystem::create_directories("logs");
 
-    static std::ofstream logFile("logs/debug.log", std::ios::app);
+    static std::ofstream log_file("logs/debug.log", std::ios::app);
 
-    if (!logFile.is_open())
+    if (!log_file.is_open())
     {
         std::cerr << "Error opening log file!" << std::endl;
         return;
     }
 
-    logFile << message << '\n';
-    logFile.flush();
+    log_file << message << '\n';
+    log_file.flush();
 }

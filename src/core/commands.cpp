@@ -1,156 +1,130 @@
-#include "myheader.h"
+#include "myheader.hpp"
 
-void searchCommand(bool check_dir, bool check_file, std::string filename)
-{
-    if(filename.empty()) return;
+void searchCommand(bool check_dir, bool check_file, std::string file_name) {
+  if (file_name.empty())
+    return;
 
-    std::string path = app.nav.currPath;
+  std::string path = app.nav.curr_path;
 
-    app.search.foundPaths.resize(0);
-    transform(filename.begin(), filename.end(), filename.begin(), ::tolower); 
+  app.search.found_paths.resize(0);
+  transform(file_name.begin(), file_name.end(), file_name.begin(), ::tolower);
 
-    auto start = std::chrono::high_resolution_clock::now();
-    searchAnything(path.c_str(), filename, check_file, check_dir);
-    auto end = std::chrono::high_resolution_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    logMessage("Search took: " + std::to_string(elapsed.count()) + " ms");
-    clearScreen();
-    displaySearchResults();
+  auto start = std::chrono::high_resolution_clock::now();
+  searchAnything(path, file_name, check_file, check_dir);
+  auto end = std::chrono::high_resolution_clock::now();
+  auto elapsed =
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+  logMessage("Search took: " + std::to_string(elapsed.count()) + " ms");
+  clearScreen();
+  displaySearchResults();
 }
 
-void copy() {
-    std::vector<std::string> tempClipboard;
+void handleCopyAction() {
+  std::vector<std::string> temp_clipboard;
 
-    if (!app.selection.selectedFiles.empty()) {
-        for (auto &path : app.selection.selectedFiles) {
-            if (path.empty())
-                throw std::runtime_error("Empty path in selectedFiles");
+  if (!app.selection.selected_files.empty()) {
+    for (auto &path : app.selection.selected_files) {
+      if (path.empty())
+        throw std::runtime_error("Empty path in selected_files");
 
-            tempClipboard.push_back(path);
-        }
-    } else {
-        int index = app.nav.xcurr + app.nav.up_screen - 1;
-
-        if (index < 0 || index >= (int)app.nav.fileList.size())
-            throw std::out_of_range("Invalid cursor index");
-
-        std::string file = app.nav.fileList[index];
-        tempClipboard.push_back(app.nav.currPath + "/" + file);
+      temp_clipboard.push_back(path);
     }
+  } else {
+    int index = app.nav.x_curr + app.nav.up_screen - 1;
 
-    app.selection.clipboard = std::move(tempClipboard);
+    if (index < 0 || index >= (int)app.nav.file_list.size())
+      throw std::out_of_range("Invalid cursor index");
+
+    std::string file = app.nav.file_list[index];
+    temp_clipboard.push_back(app.nav.curr_path + "/" + file);
+  }
+
+  app.selection.clipboard = std::move(temp_clipboard);
 }
 
-std::string paste()
-{
-    if (app.selection.clipboard.empty())
+std::string paste() {
+  if (app.selection.clipboard.empty())
     return "";
-    
-    std::vector<std::string> pastedFiles;
-    std::string fileName="";
-    for (auto &src : app.selection.clipboard) {
-        fs::path sourcePath(src);
-        fs::path dest = fs::path(app.nav.currPath) / sourcePath.filename();
 
-        if (fs::is_directory(sourcePath)) {
-            fs::copy(sourcePath, dest,
-                fs::copy_options::recursive | fs::copy_options::overwrite_existing);
-        } else {
-            fs::copy_file(sourcePath, dest,
-                fs::copy_options::overwrite_existing);
-        }
+  std::vector<std::string> pasted_files;
+  std::string file_name = "";
+  for (auto &src : app.selection.clipboard) {
+    fs::path source_path(src);
+    fs::path dest = fs::path(app.nav.curr_path) / source_path.filename();
 
-        pastedFiles.push_back(dest.string());
-        if(fileName.length()==0) fileName=dest.filename().string();
-    }
-
-    if (app.config.indexingEnabled) {
-        app.indexing.index.rectifyIndex(
-            RectifyAction::COPY, {}, pastedFiles
-        );
-    }
-
-    app.selection.selectedFiles.clear();
-    return fileName;
-}
-
-void deleteSelectedItems()
-{
-    std::vector<std::string> targets;
-
-    if (!app.selection.selectedFiles.empty()) {
-        for (auto &p : app.selection.selectedFiles)
-            targets.push_back(p);
+    if (fs::is_directory(source_path)) {
+      fs::copy(source_path, dest,
+               fs::copy_options::recursive |
+                   fs::copy_options::overwrite_existing);
     } else {
-        std::string file = app.nav.fileList[app.nav.xcurr + app.nav.up_screen - 1];
-        targets.push_back(app.nav.currPath + "/" + file);
+      fs::copy_file(source_path, dest, fs::copy_options::overwrite_existing);
     }
 
-    for (auto &path : targets) {
-        fs::remove_all(path);
-    }
+    pasted_files.push_back(dest.string());
+    if (file_name.length() == 0)
+      file_name = dest.filename().string();
+  }
 
-    if (app.config.indexingEnabled) {
-        app.indexing.index.rectifyIndex(
-            RectifyAction::DELETE, targets, {}
-        );
-    }
-
-    app.selection.selectedFiles.clear();
+  app.selection.selected_files.clear();
+  return file_name;
 }
 
-bool renameItem(const std::string &selectedFile, const std::string &newName)
-{
-    if (newName.empty()) return false;
+void deleteSelectedItems() {
+  std::vector<std::string> targets;
 
-    std::string oldPath = app.nav.currPath + "/" + selectedFile;
-    std::string newPath = app.nav.currPath + "/" + newName;
+  if (!app.selection.selected_files.empty()) {
+    for (auto &p : app.selection.selected_files)
+      targets.push_back(p);
+  } else {
+    std::string file = app.nav.file_list[app.nav.x_curr + app.nav.up_screen - 1];
+    targets.push_back(app.nav.curr_path + "/" + file);
+  }
 
-    if (rename(oldPath.c_str(), newPath.c_str()) != 0)
-        return false;
+  for (auto &path : targets) {
+    fs::remove_all(path);
+  }
 
-    if (app.config.indexingEnabled) {
-        app.indexing.index.rectifyIndex(
-            RectifyAction::RENAME, {oldPath}, {newPath}
-        );
-    }
-
-    return true;
+  app.selection.selected_files.clear();
 }
 
-bool createFile(const std::string &fileName)
-{
-    if (fileName.empty()) return false;
+bool renameItem(const std::string &selected_file, const std::string &new_name) {
+  if (new_name.empty())
+    return false;
 
-    std::string filePath = app.nav.currPath + "/" + fileName;
+  std::string old_path = app.nav.curr_path + "/" + selected_file;
+  std::string new_path = app.nav.curr_path + "/" + new_name;
 
-    std::ofstream file(filePath);
-    if (!file) return false;
-    file.close();
+  std::error_code ec;
+  fs::rename(old_path, new_path, ec);
+  if (ec)
+    return false;
 
-    if (app.config.indexingEnabled) {
-        app.indexing.index.rectifyIndex(
-            RectifyAction::CREATE, {}, {filePath}
-        );
-    }
-
-    return true;
+  return true;
 }
 
-bool createDirectory(const std::string &dirName)
-{
-    if (dirName.empty()) return false;
+bool createFile(const std::string &file_name) {
+  if (file_name.empty())
+    return false;
 
-    std::string dirPath = app.nav.currPath + "/" + dirName;
+  std::string file_path = app.nav.curr_path + "/" + file_name;
 
-    if (mkdir(dirPath.c_str(), 0777) != 0)
-        return false;
+  std::ofstream file(file_path);
+  if (!file)
+    return false;
+  file.close();
 
-    if (app.config.indexingEnabled) {
-        app.indexing.index.rectifyIndex(
-            RectifyAction::CREATE, {}, {dirPath}
-        );
-    }
+  return true;
+}
 
-    return true;
+bool createDirectory(const std::string &dir_name) {
+  if (dir_name.empty())
+    return false;
+
+  std::string dir_path = app.nav.curr_path + "/" + dir_name;
+
+  std::error_code ec;
+  if (!fs::create_directory(dir_path, ec))
+    return false;
+
+  return true;
 }

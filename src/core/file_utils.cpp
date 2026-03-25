@@ -1,4 +1,4 @@
-#include "myheader.h"
+#include "myheader.hpp"
 
 bool isDirectory(const fs::path &path) noexcept
 {
@@ -26,9 +26,9 @@ bool isBinaryFile(const fs::path& path) {
 
     std::vector<char> buffer(512);
     file.read(buffer.data(), buffer.size());
-    std::streamsize bytesRead = file.gcount();
+    std::streamsize bytes_read = file.gcount();
 
-    for (std::streamsize i = 0; i < bytesRead; i++) {
+    for (std::streamsize i = 0; i < bytes_read; i++) {
         unsigned char c = static_cast<unsigned char>(buffer[i]);
 
         if (c == '\0') return true;

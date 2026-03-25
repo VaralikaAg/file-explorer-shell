@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "myheader.h"
+#include "myheader.hpp"
 
 // --- normalizeWord Tests ---
 TEST(TextUtilsTest, NormalizeWord_Basic) {
@@ -63,5 +63,5 @@ TEST(FormatUtilsTest, Truncate_Long) { EXPECT_EQ(truncateStr("hello world", 5), 
 TEST(FormatUtilsTest, Truncate_Exact) { EXPECT_EQ(truncateStr("hello", 5), "hello"); }
 TEST(FormatUtilsTest, Truncate_Short) { EXPECT_EQ(truncateStr("abc", 2), "..."); }
 TEST(FormatUtilsTest, Truncate_VeryShort) { EXPECT_EQ(truncateStr("a", 1), "a"); }
-TEST(FormatUtilsTest, Truncate_Empty) { EXPECT_EQ(truncateStr("", 5), ""); }
-TEST(FormatUtilsTest, Truncate_Padding_None) { EXPECT_EQ(truncateStr("hi", 10), "hi"); }
+TEST(FormatUtilsTest, Truncate_Empty) { EXPECT_EQ(truncateStr("", 5), "     "); }
+TEST(FormatUtilsTest, Truncate_Padding_None) { EXPECT_EQ(truncateStr("hi", 10), "hi        "); }

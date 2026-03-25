@@ -1,63 +1,63 @@
-#include "myheader.h"
+#include "myheader.hpp"
 
 void showHelp()
 {
     clearScreen();
 
     setCursorPos(1, 5);
-    printf("\033[1;33mCOMMAND MODE HELP (:)\033[0m");
+    std::cout << ANSI::BOLD_YELLOW << "COMMAND MODE HELP (:)" << ANSI::RESET;
 
     int r = 3;
 
     setCursorPos(r++, 5);
-    printf("\033[1;36mrename <new_name>\033[0m");
-    printf("        Rename selected file / directory");
+    std::cout << ANSI::BOLD_CYAN << "rename <new_name>" << ANSI::RESET;
+    std::cout << "        Rename selected file / directory";
 
     setCursorPos(r++, 5);
-    printf("\033[1;36mcreate_file <name>\033[0m");
-    printf("       Create a new file in current directory");
+    std::cout << ANSI::BOLD_CYAN << "create_file <name>" << ANSI::RESET;
+    std::cout << "       Create a new file in current directory";
 
     setCursorPos(r++, 5);
-    printf("\033[1;36mcreate_dir <name>\033[0m");
-    printf("        Create a new directory");
+    std::cout << ANSI::BOLD_CYAN << "create_dir <name>" << ANSI::RESET;
+    std::cout << "        Create a new directory";
 
     setCursorPos(r++, 5);
-    printf("\033[1;36mcd <absolute_path>\033[0m");
-    printf("       Change directory using absolute path");
+    std::cout << ANSI::BOLD_CYAN << "cd <absolute_path>" << ANSI::RESET;
+    std::cout << "       Change directory using absolute path";
 
     setCursorPos(r++, 5);
-    printf("\033[1;36msearch <name>\033[0m");
-    printf("            Search files & directories");
+    std::cout << ANSI::BOLD_CYAN << "search <name>" << ANSI::RESET;
+    std::cout << "            Search files & directories";
 
     setCursorPos(r++, 5);
-    printf("\033[1;36msearch --file <name>\033[0m");
-    printf("     Search only files");
+    std::cout << ANSI::BOLD_CYAN << "search --file <name>" << ANSI::RESET;
+    std::cout << "     Search only files";
 
     setCursorPos(r++, 5);
-    printf("\033[1;36msearch --dir <name>\033[0m");
-    printf("      Search only directories");
+    std::cout << ANSI::BOLD_CYAN << "search --dir <name>" << ANSI::RESET;
+    std::cout << "      Search only directories";
 
     setCursorPos(r++, 5);
-    printf("\033[1;36mfind <keywords>\033[0m");
-    printf("          Find paths using indexed search");
+    std::cout << ANSI::BOLD_CYAN << "find <keywords>" << ANSI::RESET;
+    std::cout << "          Find paths using indexed search";
 
     setCursorPos(r++, 5);
-    printf("\033[1;36mfind --dir <keywords>\033[0m");
-    printf("    Find directories under current path");
+    std::cout << ANSI::BOLD_CYAN << "find --dir <keywords>" << ANSI::RESET;
+    std::cout << "    Find directories under current path";
 
     setCursorPos(r++, 5);
-    printf("\033[1;36mhelp | --help\033[0m");
-    printf("            Show this help screen");
+    std::cout << ANSI::BOLD_CYAN << "help | --help" << ANSI::RESET;
+    std::cout << "            Show this help screen";
 
     setCursorPos(r++, 5);
-    printf("\033[1;36mq\033[0m");
-    printf("                        Exit command mode");
+    std::cout << ANSI::BOLD_CYAN << "q" << ANSI::RESET;
+    std::cout << "                        Exit command mode";
 
     setCursorPos(app.ui.rows - 2, 5);
-    printf("\033[1;32mPress any key to return...\033[0m");
+    std::cout << ANSI::BOLD_GREEN << "Press any key to return..." << ANSI::RESET;
 
-    fflush(stdout);
-    getchar();
+    std::cout << std::flush;
+    std::cin.get();
 
     renderUI();
     setDefaultCursorPos();

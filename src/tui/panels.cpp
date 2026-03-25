@@ -1,82 +1,75 @@
-#include "myheader.h"
+#include "myheader.hpp"
 
-void renderMiddlePanel()
-{
-    openCurrDirectory(app.nav.currPath.c_str());
+void renderMiddlePanel() {
 
-    for (int i = app.nav.up_screen, line = 1;
-         i < app.nav.up_screen + app.layout.rowSize &&
-         i < (int)app.nav.fileList.size();
-         i++, line++)
-    {
-        setCursorPos(line, app.layout.colSize + 2);
-        display(app.nav.fileList[i].c_str(), app.nav.currPath.c_str());
-    }
+  for (int i = app.nav.up_screen, line = 1;
+       i < app.nav.up_screen + app.layout.row_size &&
+       i < (int)app.nav.file_list.size();
+       i++, line++) {
+    setCursorPos(line, app.layout.col_size + 2);
+    display(app.nav.file_list[i], app.nav.curr_path);
+  }
 }
 
 void renderRightPanel() {
-    if (app.nav.fileList.empty())
-        return;
+  if (app.nav.file_list.empty())
+    return;
 
-    // Get selected file path
-    std::string selectedFile = app.nav.fileList[app.nav.xcurr + app.nav.up_screen - 1];
-    fs::path newPath = fs::path(app.nav.currPath) / selectedFile;
+  // Get selected file path
+  std::string selected_file =
+      app.nav.file_list[app.nav.x_curr + app.nav.up_screen - 1];
+  fs::path next_path = fs::path(app.nav.curr_path) / selected_file;
 
-    bool readable = isReadable(newPath);
+  bool readable = isReadable(next_path);
 
-    if (isDirectory(newPath)) {
-        renderDirectoryPreview(newPath.string());
-    } else if (isRegularFile(newPath)) {
-        renderFilePreview(newPath.string(), readable);
-    }
+  if (isDirectory(next_path)) {
+    renderDirectoryPreview(next_path.string());
+  } else if (isRegularFile(next_path)) {
+    renderFilePreview(next_path.string(), readable);
+  }
 
-    /* -------- FILE DETAILS -------- */
-    setCursorPos(1, 1);
-    getFileDetails(newPath.string());
-    print_details();
+  /* -------- FILE DETAILS -------- */
+  setCursorPos(1, 1);
+  getFileDetails(next_path.string());
+  renderLeftPanel();
 }
 
-void renderFilePreview(const std::string &newPath, bool isReadable) {
-    if (isReadable)
-    {
-        if (!isBinaryFile(newPath))
-        {
-            displayTextFile(newPath);
-        }
-        else {
-            setCursorPos(1, 2*app.layout.colSize);
-            printf("\033[1;31mBinary File\033[0m\n");
-        }
+void renderFilePreview(const std::string &next_path, bool is_readable) {
+  if (is_readable) {
+    if (!isBinaryFile(next_path)) {
+      displayTextFile(next_path);
+    } else {
+      setCursorPos(1, 2 * app.layout.col_size);
+      std::cout << ANSI::BOLD_RED << "Binary File" << ANSI::RESET << "\n";
     }
-    else {
-        setCursorPos(1, 2*app.layout.colSize);
-        printf("\033[1;31mNo Read Permission\033[0m\n");
-    }
+  } else {
+    setCursorPos(1, 2 * app.layout.col_size);
+    std::cout << ANSI::BOLD_RED << "No Read Permission" << ANSI::RESET << "\n";
+  }
 }
 
-void renderDirectoryPreview(const std::string &newPath) {
-    openDirectory(newPath.c_str(), app.layout.for_up_screen, app.layout.for_down_screen); 
+void renderDirectoryPreview(const std::string &next_path) {
+  std::vector<std::string> files = getDirectoryFiles(next_path);
+  int for_up = 0, for_down = 0, dummy_x = 1;
+  normalizeRange((int)files.size(), app.layout.row_size, for_up, for_down,
+                 dummy_x);
 
-    if(app.nav.fileList.size() == 0){
-        setCursorPos(1, 2*app.layout.colSize);
-        printf("\033[1;31mNo Items\033[0m\n");
+  if (files.empty()) {
+    setCursorPos(1, 2 * app.layout.col_size);
+    std::cout << ANSI::BOLD_RED << "No Items" << ANSI::RESET << "\n";
+  } else {
+    for (int i = for_up, line = 1;
+         i < for_up + app.layout.row_size && i < (int)files.size();
+         i++, line++) {
+      setCursorPos(line, 2 * app.layout.col_size);
+      display(files[i], next_path);
     }
-    else{
-        for (int i = app.layout.for_up_screen, line = 1;
-             i < app.layout.for_up_screen + app.layout.rowSize &&
-             i < (int)app.nav.fileList.size();
-             i++, line++)
-        {
-            setCursorPos(line, 2*app.layout.colSize);
-            display(app.nav.fileList[i].c_str(), newPath);
-        }
-    }
+  }
 }
 
-void refreshCurrentDirectory()
-{
-    invalidateDirCache(app.nav.currPath);
-    openCurrDirectory(app.nav.currPath.c_str());
+void refreshCurrentDirectory() {
+  invalidateDirCache(app.nav.curr_path);
+  openCurrDirectory(app.nav.curr_path);
 
-    normalizeRange((int)app.nav.fileList.size(), app.layout.rowSize, app.nav.up_screen, app.nav.down_screen, app.nav.xcurr);
+  normalizeCursor();
 }

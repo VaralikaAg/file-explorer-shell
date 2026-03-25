@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include <algorithm>
-#include "myheader.h"
+#include "myheader.hpp"
 
 // --- normalizeRange Tests ---
 TEST(NavigationTest, NormalizeRange_EmptyDir) {
@@ -72,7 +72,7 @@ TEST(NavigationTest, NormalizeRange_XBoundary) {
     // X too high
     up = 0; x = 50;
     normalizeRange(20, 10, up, down, x);
-    EXPECT_EQ(x, 10); // Clamped to rowSize
+    EXPECT_EQ(x, 10); // Clamped to row_size
     
     // X too low
     x = -5;
@@ -94,7 +94,7 @@ TEST(NavigationTest, ScrollToIndex_PageJumps) {
 }
 
 TEST(NavigationTest, IsUnderCurrentDir_EdgeCases) {
-    app.nav.currPath = "/a/b";
+    app.nav.curr_path = "/a/b";
     EXPECT_TRUE(isUnderCurrentDir("/a/b/c"));
     EXPECT_TRUE(isUnderCurrentDir("/a/b/file.txt"));
     EXPECT_FALSE(isUnderCurrentDir("/a/c"));
@@ -121,7 +121,7 @@ TEST(NavigationTest, ScrollToIndex_RapidSuccession) {
 
 // --- isUnderCurrentDir Tests ---
 TEST(NavigationTest, IsUnderCurrentDir) {
-    app.nav.currPath = "/home/user/projects";
+    app.nav.curr_path = "/home/user/projects";
     EXPECT_TRUE(isUnderCurrentDir("/home/user/projects/foo.txt"));
     EXPECT_FALSE(isUnderCurrentDir("/home/user/other/foo.txt"));
 }

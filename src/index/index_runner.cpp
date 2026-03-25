@@ -1,4 +1,4 @@
-#include "myheader.h"
+#include "myheader.hpp"
 
 /*
  * startIndexing()
@@ -14,20 +14,19 @@ void startIndexing()
     std::string s = "Process ID: " + std::to_string(getpid());
     logMessage(s);
 
-    std::string main_root = app.config.indexingRoot;
+    std::string main_root = app.config.indexing_root;
 
-    if (!app.config.indexingEnabled) {
+    if (!app.config.indexing_enabled) {
         logMessage("Indexing skipped (disabled in config)");
         return;
     }
 
     /* ── Open LMDB (creates or loads existing index on disk) ── */
     // Store the database in the user's home cache directory
-    const char *home = getenv("HOME");
-    std::string dbDir = home ? std::string(home) + "/.cache/refined-explorer/lmdb"
-                              : "/tmp/refined-explorer/lmdb";
+    std::string db_dir = getenv("HOME") ? std::string(getenv("HOME")) + "/.cache/refined-explorer/lmdb"
+                                       : "/tmp/refined-explorer/lmdb";
 
-    app.indexing.index.open(dbDir);
+    app.indexing.index.open(db_dir);
 
     /* ── Initialize Real-time Watcher (inotify/FSEvents) ── */
     app.indexing.watcher = createWatcher();

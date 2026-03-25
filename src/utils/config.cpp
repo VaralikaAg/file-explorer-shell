@@ -1,57 +1,53 @@
-#include "myheader.h"
+#include "myheader.hpp"
 
 void loadConfig() {
     std::ifstream file(CONFIG_PATH);
     if (!file.is_open()) {
-        logMessage("config.yml not found, using default workers = 4");
+        logMessage("config.json not found, using default workers = 4");
+        app.config.workers = 4;
+        app.config.indexing_enabled = false;
+        app.config.indexing_root = "/home";
         return;
     }
 
-    std::string line;
-    while (std::getline(file, line)) {
-        // remove spaces
-        line.erase(remove_if(line.begin(), line.end(), ::isspace), line.end());
+    try {
+        json cfg;
+        file >> cfg;
 
-        if (line.find("workers:") != std::string::npos) {
-            try {
-                app.config.workers = std::stoi(line.substr(line.find(":") + 1));
-                if (app.config.workers <= 0) {
-                    app.config.workers = 4;
-                }
-                logMessage("Loaded workers = " + std::to_string(app.config.workers));
-            } catch (...) {
-                logMessage("Invalid workers value, using default");
+        if (cfg.contains("performance")) {
+            auto& perf = cfg["performance"];
+            
+            if (perf.contains("workers")) {
+                app.config.workers = perf["workers"].get<int>();
+                if (app.config.workers <= 0) app.config.workers = 4;
+            } else {
                 app.config.workers = 4;
             }
-        }
-        /* indexing flag */
-        else if (line.find("indexing:") != std::string::npos) {
-            std::string val = line.substr(line.find(":") + 1);
 
-            if (val == "true" || val == "1" || val == "yes") {
-                app.config.indexingEnabled = true;
+            if (perf.contains("indexing")) {
+                app.config.indexing_enabled = perf["indexing"].get<bool>();
             } else {
-                app.config.indexingEnabled = false;
+                app.config.indexing_enabled = false;
             }
 
-            logMessage(
-                std::string("Indexing ") +
-                (app.config.indexingEnabled ? "ENABLED" : "DISABLED")
-            );
-        }
-        else if (line.find("indexing_root:") != std::string::npos) {
-
-            std::string root = line.substr(line.find(":") + 1);
-
-            if (!root.empty() && root[0] == '/') {
-                app.config.indexingRoot = root;
-                logMessage("Indexing root set to: " + app.config.indexingRoot);
+            if (perf.contains("indexing_root")) {
+                app.config.indexing_root = perf["indexing_root"].get<std::string>();
             } else {
-                logMessage("Invalid indexing_root, using default: /home");
-                app.config.indexingRoot = "/home";
+                app.config.indexing_root = "/home";
             }
         }
 
+        logMessage("Configuration loaded successfully from config.json");
+        logMessage("Workers: " + std::to_string(app.config.workers));
+        logMessage("Indexing: " + std::string(app.config.indexing_enabled ? "ENABLED" : "DISABLED"));
+        logMessage("Indexing Root: " + app.config.indexing_root);
+
+    } catch (const std::exception& e) {
+        logMessage("Error parsing config.json: " + std::string(e.what()));
+        logMessage("Using default configuration");
+        app.config.workers = 4;
+        app.config.indexing_enabled = false;
+        app.config.indexing_root = "/home";
     }
 
     file.close();

@@ -1,92 +1,64 @@
-#include "myheader.h"
+#include "myheader.hpp"
 
 void initializeNavigation(int argc, char *argv[]) {
 
     // ROOT SET
-    if(argc==1){
-        char *currentDir = getcwd(NULL, 0);
-        app.nav.root = currentDir;
-        free(currentDir);
+    if (argc == 1) {
+        app.nav.root = fs::current_path().string();
     }
     else{
         app.nav.root = argv[1];
     }
 
-    std::string absPath = app.nav.root;
+    std::string abs_path = app.nav.root;
 
-    std::vector<std::string> pathParts;
-    std::stringstream ss(absPath);
+    std::vector<std::string> path_parts;
+    std::stringstream ss(abs_path);
     std::string segment;
 
     while (getline(ss, segment, '/')) {
         if (!segment.empty()) {
-            pathParts.push_back(segment);
+            path_parts.push_back(segment);
         }
     }
 
-    std::stack<NavState> tempStack, dummyStack;
+    while (!app.nav.back_stack.empty())
+        app.nav.back_stack.pop();
 
-    std::string newPath = "";
 
-    for (size_t ind=0; ind<pathParts.size(); ind++) {
-        const auto dir = pathParts[ind];
-        newPath = newPath + "/" + dir;
+    std::string new_path = "";
 
-        std::vector<std::string> currFileList;
-        DIR *d = opendir(newPath.c_str());
-        if (d) {
-            struct dirent *entry;
-            while ((entry = readdir(d)) != nullptr) {
-                std::string name = entry->d_name;
-                if (name == "." || name == "..") continue;
-                currFileList.push_back(name);
+    for (size_t ind=0; ind<path_parts.size(); ind++) {
+        const auto dir = path_parts[ind];
+        new_path = new_path + "/" + dir;
+
+        std::vector<std::string> curr_file_list;
+        std::error_code ec;
+        if (fs::exists(new_path, ec) && fs::is_directory(new_path, ec)) {
+            for (const auto& entry : fs::directory_iterator(new_path, ec)) {
+                curr_file_list.push_back(entry.path().filename().string());
             }
-            closedir(d);
-            sort(currFileList.begin(), currFileList.end());
+            std::sort(curr_file_list.begin(), curr_file_list.end());
         }
 
-        int dirIndex = 0;
-        if(ind<pathParts.size()-1){
-            for (size_t i = 0; i < currFileList.size(); i++) {
-                if (currFileList[i] == pathParts[ind+1]) {
-                    dirIndex = i;
-                    break;
-                }
+        int dir_index = 0;
+        if (ind < path_parts.size() - 1) {
+            auto it = std::find(curr_file_list.begin(), curr_file_list.end(), path_parts[ind + 1]);
+            if (it != curr_file_list.end()) {
+                dir_index = std::distance(curr_file_list.begin(), it);
             }
         }
 
-        if ((int)dirIndex < app.layout.rowSize)
-        {
-            app.nav.up_screen = 0;
-            app.nav.xcurr = dirIndex + 1;
-        }
-        else
-        {
-            app.nav.up_screen = dirIndex - app.layout.rowSize+1;
-            app.nav.xcurr = app.layout.rowSize;
-        }
+        scrollToIndex(dir_index, (int)curr_file_list.size(), app.layout.row_size, app.nav.up_screen, app.nav.down_screen, app.nav.x_curr);
 
-        NavState currState;
-        currState.path = newPath;
-        currState.xcurr = app.nav.xcurr;
-        currState.up_screen = app.nav.up_screen;
+        NavState curr_state;
+        curr_state.path = new_path;
+        curr_state.x_curr = app.nav.x_curr;
+        curr_state.up_screen = app.nav.up_screen;
 
-        tempStack.push(currState);
+        app.nav.back_stack.push(curr_state);
     }
 
-    while (!app.nav.backStack.empty())
-        app.nav.backStack.pop();
-
-    while (!tempStack.empty()) {
-        dummyStack.push(tempStack.top());
-        tempStack.pop();
-    }
-
-    while (!dummyStack.empty()) {
-        app.nav.backStack.push(dummyStack.top());
-        dummyStack.pop();
-    }
-
-    app.nav.backStack.pop();
-    app.nav.currPath = app.nav.root;
+    app.nav.back_stack.pop();
+    app.nav.curr_path = app.nav.root;
 }

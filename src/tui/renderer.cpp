@@ -1,106 +1,82 @@
-#include "myheader.h"
+#include "myheader.hpp"
 
-void display(const std::string &fileName,const fs::path &root) noexcept
-{
-    fs::path fullPath = root / fileName;
-    std::string displayFile = fileName;
+void display(const std::string &file_name, const fs::path &root) noexcept {
+  fs::path full_path = root / file_name;
+  std::string display_file = file_name;
 
-    bool selected = app.selection.selectedFiles.count(fullPath.string());
+  bool selected = app.selection.selected_files.count(full_path.string());
 
-    // 🔹 truncate safely
-    if ((int)displayFile.length() > app.layout.colSize - 3) {
-        displayFile = displayFile.substr(0, app.layout.colSize - 6) + "...";
-    }
+  // truncate safely
+  if ((int)display_file.length() > app.layout.col_size - 3) {
+    display_file = display_file.substr(0, app.layout.col_size - 6) + "...";
+  }
 
-    // 🔹 highlight selected
-    if (selected)
-        std::cout << "\033[7m";
+  // highlight selected
+  if (selected)
+    std::cout << ANSI::INVERSE;
 
-    // 🔹 directory coloring
-    if (isDirectory(fullPath)) {
-        std::cout << "\033[1;32m" << displayFile << "\033[0m\n";
-    } else {
-        std::cout << displayFile << "\n";
-    }
+  // directory coloring
+  if (isDirectory(full_path)) {
+    std::cout << ANSI::BOLD_GREEN << display_file << ANSI::RESET << "\n";
+  } else {
+    std::cout << display_file << "\n";
+  }
 
-    // 🔹 reset highlight
-    if (selected)
-        std::cout << "\033[0m";
+  // reset highlight
+  if (selected)
+    std::cout << ANSI::RESET;
 }
 
-void displayTextFile(const std::string &filepath) {
-    std::ifstream file(filepath);
-    if (!file) {
-        setCursorPos(1, 2*app.layout.colSize);
-        printf("\033[1;31mError Opening File\033[0m\n");
-        return;
+void displayTextFile(const std::string &file_path) {
+  std::ifstream file(file_path);
+  if (!file) {
+    setCursorPos(1, 2 * app.layout.col_size);
+    std::cout << ANSI::BOLD_RED << "Error Opening File" << ANSI::RESET << "\n";
+    return;
+  }
+
+  std::string line;
+  int y_pos = 1; // Start from the first line
+
+  while (std::getline(file, line)) {
+    if ((int)line.length() > app.layout.col_size - 3) {
+      line = line.substr(0, app.layout.col_size - 7) +
+             "..."; // Truncate after 30 chars
     }
 
-    std::string line;
-    int yPos = 1;  // Start from the first line
+    setCursorPos(
+        y_pos++,
+        2 * app.layout.col_size); // Print each line at a new y-coordinate
+    std::cout << line << "\n";
 
-    while (std::getline(file, line))
-    {
-        if ((int)line.length() > app.layout.colSize - 3)
-        {
-            line = line.substr(0, app.layout.colSize-7) + "...";  // Truncate after 30 chars
-        }
-
-        setCursorPos(yPos++, 2*app.layout.colSize);  // Print each line at a new y-coordinate
-        printf("%s\n", line.c_str());
-
-        if (static_cast<int>(yPos) >= app.ui.rows - 5) {  // Avoid screen overflow (adjust as needed)
-            setCursorPos(app.ui.rows-5, 2*app.layout.colSize);
-            printf("\033[1;33m... Output Truncated\033[0m\n");
-            break;
-        }
+    if (static_cast<int>(y_pos) >=
+        app.ui.rows - 5) { // Avoid screen overflow (adjust as needed)
+      setCursorPos(app.ui.rows - 5, 2 * app.layout.col_size);
+      std::cout << ANSI::BOLD_YELLOW << "... Output Truncated" << ANSI::RESET
+                << "\n";
+      break;
     }
+  }
 
-    file.close();
+  file.close();
 }
 
-void showTempMessage(const std::string &msg, int wait_ms=1000) {
-    setCursorPos(app.ui.rows - 2, 0);
-    printf("\033[K");
-    printf("\033[1;31m%s\033[0m", msg.c_str());
-    fflush(stdout);
 
-    // Wait either for key press OR timeout
-    fd_set set;
-    struct timeval timeout;
+void renderUI() {
+  clearScreen();
+  setCursorRed();
 
-    FD_ZERO(&set);
-    FD_SET(STDIN_FILENO, &set);
+  /* -------- MIDDLE PANEL -------- */
+  renderMiddlePanel();
 
-    timeout.tv_sec = wait_ms / 1000;
-    timeout.tv_usec = (wait_ms % 1000) * 1000;
+  /* -------- RIGHT PANEL -------- */
+  renderRightPanel();
 
-    select(STDIN_FILENO + 1, &set, NULL, NULL, &timeout);
+  /* -------- STATUS BAR -------- */
+  setCursorPos(app.ui.rows - 2, 0);
+  std::cout << ANSI::BOLD_BLUE << "Current Path: " << app.nav.curr_path
+            << ANSI::RESET << "\n";
 
-    // Clear message line
-    setCursorPos(app.ui.rows - 2, 0);
-    printf("\033[K");
-    fflush(stdout);
-}
-
-void renderUI()
-{
-    clearScreen();
-    setCursorRed();
-
-    /* -------- MIDDLE PANEL -------- */
-    renderMiddlePanel();
-
-    /* -------- RIGHT PANEL -------- */
-    renderRightPanel();
-
-    /* -------- STATUS BAR -------- */
-    setCursorPos(app.ui.rows - 2, 0);
-    printf("\033[1;34mCurrent Path: %s\033[0m\n", app.nav.currPath.c_str());
-
-    /* -------- RESTORE STATE -------- */
-    openCurrDirectory(app.nav.currPath.c_str());
-
-    app.nav.ycurr = app.layout.colSize;
-    setDefaultCursorPos();
+  app.nav.y_curr = app.layout.col_size;
+  setDefaultCursorPos();
 }

@@ -3,7 +3,7 @@
 #include <fstream>
 #include <thread>
 #include <chrono>
-#include "myheader.h"
+#include "myheader.hpp"
 
 namespace fs = std::filesystem;
 
@@ -18,8 +18,8 @@ protected:
         fs::remove_all(dummyFile);
         
         // Initialize app config for indexing
-        app.config.indexingRoot = DUMMY_DIR;
-        app.config.indexingEnabled = true;
+        app.config.indexing_root = DUMMY_DIR;
+        app.config.indexing_enabled = true;
         
         app.indexing.index.open(dbPath);
     }
@@ -45,7 +45,7 @@ TEST_F(IndexTest, IndexAndSearch_SingleWord) {
     // Since we use volfs and inode resolution, let's verify if results are found
     // If running on a system where /.vol/ is restricted, this might be empty
     // But logically, it should find it.
-    EXPECT_FALSE(app.search.foundPaths.empty());
+    EXPECT_FALSE(app.search.found_paths.empty());
 }
 
 TEST_F(IndexTest, IndexAndSearch_MultiWord_AND) {
@@ -54,11 +54,11 @@ TEST_F(IndexTest, IndexAndSearch_MultiWord_AND) {
     
     // Search for both words
     app.indexing.index.search("hello world");
-    EXPECT_FALSE(app.search.foundPaths.empty());
+    EXPECT_FALSE(app.search.found_paths.empty());
     
     // Search for non-existent pair
     app.indexing.index.search("hello nonexistent");
-    EXPECT_TRUE(app.search.foundPaths.empty());
+    EXPECT_TRUE(app.search.found_paths.empty());
 }
 
 TEST_F(IndexTest, StopwordNotIndexed) {
@@ -66,10 +66,10 @@ TEST_F(IndexTest, StopwordNotIndexed) {
     app.indexing.index.indexPath(dummyFile);
     
     app.indexing.index.search("the");
-    EXPECT_TRUE(app.search.foundPaths.empty());
+    EXPECT_TRUE(app.search.found_paths.empty());
     
     app.indexing.index.search("simple");
-    EXPECT_FALSE(app.search.foundPaths.empty());
+    EXPECT_FALSE(app.search.found_paths.empty());
 }
 
 TEST_F(IndexTest, SpecialSymbolWord) {
@@ -77,10 +77,10 @@ TEST_F(IndexTest, SpecialSymbolWord) {
     app.indexing.index.indexPath(dummyFile);
     
     app.indexing.index.search("user@corp");
-    EXPECT_FALSE(app.search.foundPaths.empty());
+    EXPECT_FALSE(app.search.found_paths.empty());
     
     app.indexing.index.search("#tag_name");
-    EXPECT_FALSE(app.search.foundPaths.empty());
+    EXPECT_FALSE(app.search.found_paths.empty());
 }
 
 TEST_F(IndexTest, BinaryFileSkipped) {
@@ -90,18 +90,18 @@ TEST_F(IndexTest, BinaryFileSkipped) {
     
     app.indexing.index.indexPath(dummyFile);
     app.indexing.index.search("text");
-    EXPECT_TRUE(app.search.foundPaths.empty());
+    EXPECT_TRUE(app.search.found_paths.empty());
 }
 
 TEST_F(IndexTest, RemovePath_Cleans) {
     std::ofstream(dummyFile) << "apple banana";
     app.indexing.index.indexPath(dummyFile);
     app.indexing.index.search("apple");
-    ASSERT_FALSE(app.search.foundPaths.empty());
+    ASSERT_FALSE(app.search.found_paths.empty());
     
     app.indexing.index.removePath(dummyFile);
     app.indexing.index.search("apple");
-    EXPECT_TRUE(app.search.foundPaths.empty());
+    EXPECT_TRUE(app.search.found_paths.empty());
 }
 
 TEST_F(IndexTest, UpdatePath) {
@@ -114,10 +114,34 @@ TEST_F(IndexTest, UpdatePath) {
     app.indexing.index.indexPath(dummyFile);
     
     app.indexing.index.search("old_content");
-    EXPECT_TRUE(app.search.foundPaths.empty());
+    EXPECT_TRUE(app.search.found_paths.empty());
     
     app.indexing.index.search("new_content");
-    EXPECT_FALSE(app.search.foundPaths.empty());
+    EXPECT_FALSE(app.search.found_paths.empty());
+}
+
+TEST_F(IndexTest, UpdatePath_Diffing) {
+    std::ofstream(dummyFile) << "initial_word keep_me";
+    app.indexing.index.indexPath(dummyFile);
+    
+    app.indexing.index.search("initial_word");
+    ASSERT_FALSE(app.search.found_paths.empty());
+    
+    // Change file: remove "initial_word", add "updated_word", keep "keep_me"
+    std::ofstream(dummyFile, std::ios::trunc) << "updated_word keep_me";
+    app.indexing.index.updatePath(dummyFile);
+    
+    // Old word should be gone
+    app.indexing.index.search("initial_word");
+    EXPECT_TRUE(app.search.found_paths.empty());
+    
+    // New word should be found
+    app.indexing.index.search("updated_word");
+    EXPECT_FALSE(app.search.found_paths.empty());
+    
+    // Consistent word should still be found
+    app.indexing.index.search("keep_me");
+    EXPECT_FALSE(app.search.found_paths.empty());
 }
 
 TEST_F(IndexTest, MultiFile_AND) {
@@ -130,11 +154,11 @@ TEST_F(IndexTest, MultiFile_AND) {
     app.indexing.index.indexPath(f2);
     
     app.indexing.index.search("fox");
-    EXPECT_EQ(app.search.foundPaths.size(), 2);
+    EXPECT_EQ(app.search.found_paths.size(), 2);
     
     app.indexing.index.search("fox dog");
-    ASSERT_EQ(app.search.foundPaths.size(), 1);
-    EXPECT_EQ(app.search.foundPaths[0], f2);
+    ASSERT_EQ(app.search.found_paths.size(), 1);
+    EXPECT_EQ(app.search.found_paths[0], f2);
 }
 
 TEST_F(IndexTest, LastSyncTime) {
@@ -148,7 +172,7 @@ TEST_F(IndexTest, WordLength_TooLong) {
     app.indexing.index.indexPath(dummyFile);
     
     app.indexing.index.search(longWord);
-    EXPECT_TRUE(app.search.foundPaths.empty());
+    EXPECT_TRUE(app.search.found_paths.empty());
 }
 
 TEST_F(IndexTest, PersistenceAcrossOpen) {
@@ -159,5 +183,5 @@ TEST_F(IndexTest, PersistenceAcrossOpen) {
     // Reopen
     app.indexing.index.open(dbPath);
     app.indexing.index.search("persistent");
-    EXPECT_FALSE(app.search.foundPaths.empty());
+    EXPECT_FALSE(app.search.found_paths.empty());
 }

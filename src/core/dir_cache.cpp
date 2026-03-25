@@ -1,44 +1,44 @@
-#include "myheader.h"
+#include "myheader.hpp"
 
-void invalidateDirCache(const std::string &dirPath)
+void invalidateDirCache(const std::string &dir_path)
 {
-    auto it = app.cache.dirCache.find(dirPath);
-    if (it != app.cache.dirCache.end())
-        app.cache.dirCache.erase(it);
+    auto it = app.cache.dir_cache.find(dir_path);
+    if (it != app.cache.dir_cache.end())
+        app.cache.dir_cache.erase(it);
 }
 
-int getDirectoryCount(const fs::path &path)
+std::vector<std::string> getDirectoryFiles(const fs::path &path)
 {
-    std::string dirPath = path.string();
+    std::string dir_path = path.string();
 
-    auto it = app.cache.dirCache.find(dirPath);
-    if (it != app.cache.dirCache.end())
+    auto it = app.cache.dir_cache.find(dir_path);
+    if (it != app.cache.dir_cache.end())
     {
-        app.nav.fileList = it->second;
-        return app.nav.fileList.size();
+        return it->second;
     }
 
-    std::vector<std::string> tempList;
+    std::vector<std::string> temp_list;
 
     try
     {
-        for (const auto &entry : fs::directory_iterator(path))
-        {
-            std::string name = entry.path().filename().string();
-            if (name == "." || name == "..") continue;
-            tempList.push_back(name);
+        if (fs::exists(path) && fs::is_directory(path)) {
+            for (const auto &entry : fs::directory_iterator(path))
+            {
+                std::string name = entry.path().filename().string();
+                if (name == "." || name == "..") continue;
+                temp_list.push_back(name);
+            }
         }
     }
     catch (const std::exception &e)
     {
         logMessage(std::string("[DIR READ FAILED] ") + e.what());
-        return 0;
+        return {};
     }
 
-    std::sort(tempList.begin(), tempList.end());
+    std::sort(temp_list.begin(), temp_list.end());
 
-    app.cache.dirCache[dirPath] = tempList;
-    app.nav.fileList = tempList;
+    app.cache.dir_cache[dir_path] = temp_list;
 
-    return app.nav.fileList.size();
+    return temp_list;
 }

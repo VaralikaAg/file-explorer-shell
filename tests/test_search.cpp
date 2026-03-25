@@ -2,7 +2,7 @@
 #include <filesystem>
 #include <fstream>
 #include <algorithm>
-#include "myheader.h"
+#include "myheader.hpp"
 
 namespace fs = std::filesystem;
 
@@ -14,7 +14,7 @@ protected:
         std::ofstream(std::string(DUMMY_DIR) + "/beta.cpp").close();
         std::ofstream(std::string(DUMMY_DIR) + "/subdir/alpha_copy.txt").close();
         std::ofstream(std::string(DUMMY_DIR) + "/subdir/hidden_dir/deep.txt").close();
-        app.search.foundPaths.clear();
+        app.search.found_paths.clear();
     }
 
     void TearDown() override {
@@ -24,20 +24,20 @@ protected:
 };
 
 TEST_F(SearchTest, FindByExactName) {
-    app.search.foundPaths.clear();
+    app.search.found_paths.clear();
     searchAnything(fs::path(DUMMY_DIR), "alpha.txt", true, true);
-    ASSERT_EQ(app.search.foundPaths.size(), 1);
-    EXPECT_NE(app.search.foundPaths[0].find("alpha.txt"), std::string::npos);
+    ASSERT_EQ(app.search.found_paths.size(), 1);
+    EXPECT_NE(app.search.found_paths[0].find("alpha.txt"), std::string::npos);
 }
 
 TEST_F(SearchTest, FindByPartialName) {
-    app.search.foundPaths.clear();
+    app.search.found_paths.clear();
     searchAnything(fs::path(DUMMY_DIR), "alp", true, true);
     // Should find alpha.txt and alpha_copy.txt
-    EXPECT_EQ(app.search.foundPaths.size(), 2);
+    EXPECT_EQ(app.search.found_paths.size(), 2);
     
     bool foundAlpha = false;
-    for (const auto& p : app.search.foundPaths) {
+    for (const auto& p : app.search.found_paths) {
         if (p.find("alpha.txt") != std::string::npos) foundAlpha = true;
     }
     EXPECT_TRUE(foundAlpha);
@@ -46,23 +46,23 @@ TEST_F(SearchTest, FindByPartialName) {
 TEST_F(SearchTest, CaseInsensitiveSearch) {
     // Note: searchAnything converts name to lowercase (search_engine.cpp:11)
     searchAnything(fs::path(DUMMY_DIR), "BETA", true, true);
-    EXPECT_EQ(app.search.foundPaths.size(), 1);
-    EXPECT_NE(app.search.foundPaths[0].find("beta.cpp"), std::string::npos);
+    EXPECT_EQ(app.search.found_paths.size(), 1);
+    EXPECT_NE(app.search.found_paths[0].find("beta.cpp"), std::string::npos);
 }
 
 TEST_F(SearchTest, DeepNestedSearch) {
     searchAnything(fs::path(DUMMY_DIR), "deep", true, true);
-    ASSERT_EQ(app.search.foundPaths.size(), 1);
-    EXPECT_NE(app.search.foundPaths[0].find("deep.txt"), std::string::npos);
+    ASSERT_EQ(app.search.found_paths.size(), 1);
+    EXPECT_NE(app.search.found_paths[0].find("deep.txt"), std::string::npos);
 }
 
 TEST_F(SearchTest, FilesOnlySearch) {
     searchAnything(fs::path(DUMMY_DIR), "subdir", true, false);
     // Should not find the directory "subdir" as a search result
-    EXPECT_EQ(app.search.foundPaths.size(), 0);
+    EXPECT_EQ(app.search.found_paths.size(), 0);
 }
 
 TEST_F(SearchTest, NoMatches) {
     searchAnything(fs::path(DUMMY_DIR), "nonexistent", true, true);
-    EXPECT_EQ(app.search.foundPaths.size(), 0);
+    EXPECT_EQ(app.search.found_paths.size(), 0);
 }

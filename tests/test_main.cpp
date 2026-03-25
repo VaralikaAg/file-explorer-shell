@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "myheader.h"
+#include "myheader.hpp"
 
 // Global app state definition for tests
 AppState app;

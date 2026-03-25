@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <fstream>
 #include <filesystem>
-#include "myheader.h"
+#include "myheader.hpp"
 
 namespace fs = std::filesystem;
 
@@ -64,7 +64,7 @@ TEST_F(FileUtilsTest, PermissionRestricted) {
     std::ofstream(f).close();
     chmod(f.c_str(), 0000);
     
-    // Depending on root/user, isReadable might still be true, but usually false for 000
+    // Depending on root/user, is_readable might still be true, but usually false for 000
     // We just ensure it doesn't crash
     isReadable(fs::path(f));
     
@@ -77,55 +77,55 @@ TEST_F(FileUtilsTest, IsDirectory_True) {
 }
 
 TEST_F(FileUtilsTest, IsDirectory_False_Original) {
-    std::string filePath = std::string(DUMMY_DIR) + "/file.txt";
-    std::ofstream out(filePath);
+    std::string file_path = std::string(DUMMY_DIR) + "/file.txt";
+    std::ofstream out(file_path);
     out << "test content";
     out.close();
-    EXPECT_FALSE(isDirectory(filePath));
+    EXPECT_FALSE(isDirectory(file_path));
 }
 
 TEST_F(FileUtilsTest, IsRegularFile_True) {
-    std::string filePath = std::string(DUMMY_DIR) + "/file.txt";
-    std::ofstream out(filePath);
+    std::string file_path = std::string(DUMMY_DIR) + "/file.txt";
+    std::ofstream out(file_path);
     out << "test content";
     out.close();
-    EXPECT_TRUE(isRegularFile(filePath));
+    EXPECT_TRUE(isRegularFile(file_path));
 }
 
 TEST_F(FileUtilsTest, IsBinaryFile_TextFile) {
-    std::string filePath = std::string(DUMMY_DIR) + "/text.txt";
-    std::ofstream out(filePath);
+    std::string file_path = std::string(DUMMY_DIR) + "/text.txt";
+    std::ofstream out(file_path);
     out << "hello world\n";
     out.close();
-    EXPECT_FALSE(isBinaryFile(filePath));
+    EXPECT_FALSE(isBinaryFile(file_path));
 }
 
 TEST_F(FileUtilsTest, IsBinaryFile_BinaryFile) {
-    std::string filePath = std::string(DUMMY_DIR) + "/binary.bin";
-    std::ofstream out(filePath, std::ios::binary);
+    std::string file_path = std::string(DUMMY_DIR) + "/binary.bin";
+    std::ofstream out(file_path, std::ios::binary);
     out.put('\0'); // Null byte should trigger isBinaryFile
     out.close();
-    EXPECT_TRUE(isBinaryFile(filePath));
+    EXPECT_TRUE(isBinaryFile(file_path));
 }
 
 TEST_F(FileUtilsTest, IsReadable_Readable) {
-    std::string filePath = std::string(DUMMY_DIR) + "/r.txt";
-    std::ofstream out(filePath);
+    std::string file_path = std::string(DUMMY_DIR) + "/r.txt";
+    std::ofstream out(file_path);
     out << "readable content";
     out.close();
-    EXPECT_TRUE(isReadable(filePath));
+    EXPECT_TRUE(isReadable(file_path));
 }
 
 TEST_F(FileUtilsTest, IsReadable_NoPermission) {
-    std::string filePath = std::string(DUMMY_DIR) + "/noread.txt";
-    std::ofstream out(filePath);
+    std::string file_path = std::string(DUMMY_DIR) + "/noread.txt";
+    std::ofstream out(file_path);
     out << "secret";
     out.close();
     
     // Make unreadable
-    chmod(filePath.c_str(), 0000);
-    EXPECT_FALSE(isReadable(filePath));
+    chmod(file_path.c_str(), 0000);
+    EXPECT_FALSE(isReadable(file_path));
     
     // Restore for cleanup (remove_all might fail otherwise)
-    chmod(filePath.c_str(), 0644);
+    chmod(file_path.c_str(), 0644);
 }

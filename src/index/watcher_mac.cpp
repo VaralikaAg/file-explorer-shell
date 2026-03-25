@@ -1,5 +1,5 @@
 #ifdef __APPLE__
-#include "myheader.h"
+#include "myheader.hpp"
 #include <CoreServices/CoreServices.h>
 #include <vector>
 #include <string>
@@ -11,17 +11,17 @@
  */
 static void fsevent_callback(
     ConstFSEventStreamRef streamRef,
-    void *clientCallBackInfo,
-    size_t numEvents,
-    void *eventPaths,
-    const FSEventStreamEventFlags eventFlags[],
-    const FSEventStreamEventId eventIds[])
+    void *client_callback_info,
+    size_t num_events,
+    void *event_paths,
+    const FSEventStreamEventFlags event_flags[],
+    const FSEventStreamEventId event_ids[])
 {
-    char **paths = (char **)eventPaths;
+    char **paths = (char **)event_paths;
 
-    for (size_t i = 0; i < numEvents; i++) {
+    for (size_t i = 0; i < num_events; i++) {
         std::string path = paths[i];
-        FSEventStreamEventFlags flags = eventFlags[i];
+        FSEventStreamEventFlags flags = event_flags[i];
 
         WatcherEvent ev;
         ev.path = path;
@@ -41,7 +41,7 @@ static void fsevent_callback(
 
         {
             std::lock_guard<std::mutex> lock(app.indexing.mtx);
-            app.indexing.eventQueue.push(ev);
+            app.indexing.event_queue.push(ev);
         }
         app.indexing.cv.notify_one();
     }
@@ -49,19 +49,19 @@ static void fsevent_callback(
 
 class MacFSEventsWatcher : public FileSystemWatcher {
     FSEventStreamRef stream = nullptr;
-    std::thread loopThread;
-    CFRunLoopRef runLoop = nullptr;
+    std::thread loop_thread;
+    CFRunLoopRef run_loop = nullptr;
 
 public:
-    MacFSEventsWatcher() : stream(nullptr), runLoop(nullptr) {}
+    MacFSEventsWatcher() : stream(nullptr), run_loop(nullptr) {}
 
     ~MacFSEventsWatcher() {
         stop();
     }
 
     bool start(const std::string& path) override {
-        CFStringRef pathRef = CFStringCreateWithCString(nullptr, path.c_str(), kCFStringEncodingUTF8);
-        CFArrayRef pathsToWatch = CFArrayCreate(nullptr, (const void **)&pathRef, 1, nullptr);
+        CFStringRef path_ref = CFStringCreateWithCString(nullptr, path.c_str(), kCFStringEncodingUTF8);
+        CFArrayRef paths_to_watch = CFArrayCreate(nullptr, (const void **)&path_ref, 1, nullptr);
 
         FSEventStreamContext context = {0, nullptr, nullptr, nullptr, nullptr};
         
@@ -72,19 +72,19 @@ public:
         stream = FSEventStreamCreate(nullptr,
                                      &fsevent_callback,
                                      &context,
-                                     pathsToWatch,
+                                     paths_to_watch,
                                      kFSEventStreamEventIdSinceNow,
-                                     0.5, // Latency in seconds
+                                     5, // Latency in seconds
                                      kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagNoDefer);
 
-        CFRelease(pathRef);
-        CFRelease(pathsToWatch);
+        CFRelease(path_ref);
+        CFRelease(paths_to_watch);
 
         if (!stream) return false;
 
-        loopThread = std::thread([this]() {
-            runLoop = CFRunLoopGetCurrent();
-            FSEventStreamScheduleWithRunLoop(stream, runLoop, kCFRunLoopDefaultMode);
+        loop_thread = std::thread([this]() {
+            run_loop = CFRunLoopGetCurrent();
+            FSEventStreamScheduleWithRunLoop(stream, run_loop, kCFRunLoopDefaultMode);
             FSEventStreamStart(stream);
             CFRunLoopRun();
         });
@@ -94,17 +94,17 @@ public:
 
     void stop() override {
         if (stream) {
-            if (runLoop) {
-                CFRunLoopStop(runLoop);
+            if (run_loop) {
+                CFRunLoopStop(run_loop);
             }
-            if (loopThread.joinable()) {
-                loopThread.join();
+            if (loop_thread.joinable()) {
+                loop_thread.join();
             }
             FSEventStreamStop(stream);
             FSEventStreamInvalidate(stream);
             FSEventStreamRelease(stream);
             stream = nullptr;
-            runLoop = nullptr;
+            run_loop = nullptr;
         }
     }
 };

@@ -1,4 +1,4 @@
-#include "myheader.h"
+#include "myheader.hpp"
 
 static const std::unordered_set<std::string> STOPWORDS = {
     // Basic Pronouns & Articles

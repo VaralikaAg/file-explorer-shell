@@ -1,0 +1,7 @@
+{
+  "performance": {
+    "workers": 5,
+    "indexing": true,
+    "indexing_root": "/Users/varalikaagarwal/Developer"
+  }
+}
